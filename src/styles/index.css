@@ -54,3 +54,65 @@ body {
   0%, 100% { background-position: 0% 50%; }
   50% { background-position: 100% 50%; }
 }
+
+@keyframes sunsetDrift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes sunsetPulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.6; }
+}
+
+/* Subtle sparkle animations for title and subtitle */
+@keyframes subtlePulse {
+  0%, 100% {
+    text-shadow:
+      0 0 3px rgba(255,255,255,0.3),
+      0 0 6px rgba(255,255,255,0.2);
+  }
+  50% {
+    text-shadow:
+      0 0 8px rgba(255,255,255,0.5),
+      0 0 12px rgba(255,255,255,0.3),
+      0 0 16px rgba(168,85,247,0.2);
+  }
+}
+
+@keyframes glitterPulse {
+  0%, 100% {
+    filter: brightness(1) contrast(1.05) saturate(1.1);
+  }
+  50% {
+    filter: brightness(1.1) contrast(1.1) saturate(1.2);
+  }
+}
+
+@keyframes glitterSparkle {
+  0%, 100% {
+    filter: brightness(1) contrast(1) saturate(1);
+    text-shadow: 0 0 8px #ec4899, 0 0 16px #ec4899;
+  }
+  25% {
+    filter: brightness(1.1) contrast(1.05) saturate(1.2);
+    text-shadow: 0 0 12px #ec4899, 0 0 24px #ec4899, 0 0 32px #ec4899;
+  }
+  50% {
+    filter: brightness(1.2) contrast(1.1) saturate(1.4);
+    text-shadow: 0 0 16px #ec4899, 0 0 32px #ec4899, 0 0 48px #ec4899;
+  }
+  75% {
+    filter: brightness(1.1) contrast(1.05) saturate(1.2);
+    text-shadow: 0 0 12px #ec4899, 0 0 24px #ec4899, 0 0 32px #ec4899;
+  }
+}
+
+.pulse-text {
+  animation: subtlePulse 3s ease-in-out infinite;
+}
+
+.glitter-text {
+  animation: glitterSparkle 2.5s ease-in-out infinite;
+}

@@ -1,8 +1,9 @@
 import { motion } from 'motion/react';
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { Music2, Star, Zap, Users } from 'lucide-react';
 import { YorkieDJ } from './YorkieDJ';
 import { CrowdYorkie } from './CrowdYorkie';
+import type { Leaderboard, Genre } from '../utils/leaderboard';
 
 interface Track {
   name: string;
@@ -10,6 +11,7 @@ interface Track {
 }
 
 interface EndGameScreenProps {
+  genre: Genre;
   totalScore: number;
   averageAccuracy: number;
   maxCombo: number;
@@ -17,10 +19,15 @@ interface EndGameScreenProps {
   setDescription: string;
   vibeScore: string;
   crowdSize?: number;
+  leaderboard: Leaderboard;
+  isNewHighScore?: boolean;
+  highScoreSubmitted?: boolean;
+  onSubmitHighScore: (username: string) => void;
   onPlayAgain: () => void;
 }
 
 export function EndGameScreen({
+  genre,
   totalScore,
   averageAccuracy,
   maxCombo,
@@ -28,8 +35,32 @@ export function EndGameScreen({
   setDescription,
   vibeScore,
   crowdSize = 0,
+  leaderboard,
+  isNewHighScore = false,
+  highScoreSubmitted = false,
+  onSubmitHighScore,
   onPlayAgain,
 }: EndGameScreenProps) {
+  const [username, setUsername] = useState('');
+
+  const genreLabel = useMemo(() => {
+    switch (genre) {
+      case 'deep_house':
+        return 'Deep House';
+      case 'amapiano':
+        return 'Amapiano';
+      case 'afro_house':
+        return 'Afro House';
+      case 'gqom':
+        return 'Gqom';
+      default:
+        return genre;
+    }
+  }, [genre]);
+
+  const genreHigh = leaderboard[genre];
+  const showSubmit = isNewHighScore && !highScoreSubmitted;
+
   // Generate crowd Yorkies for display
   const displayCrowd = Array.from({ length: Math.min(crowdSize, 12) }, (_, i) => ({
     id: `display-${i}`,
@@ -78,11 +109,14 @@ export function EndGameScreen({
         initial={{ scale: 0.8, y: 50, opacity: 0 }}
         animate={{ scale: 1, y: 0, opacity: 1 }}
         transition={{ delay: 0.1, type: 'spring', stiffness: 100 }}
-        className="max-w-2xl w-full bg-gradient-to-br from-gray-900/95 via-purple-900/90 to-pink-900/90 backdrop-blur-xl rounded-3xl p-6 border-2 border-purple-500/50 shadow-2xl pointer-events-auto relative overflow-hidden"
+        className="max-w-2xl w-full max-h-[90dvh] bg-gradient-to-br from-gray-900/95 via-purple-900/90 to-pink-900/90 backdrop-blur-xl rounded-3xl border-2 border-purple-500/50 shadow-2xl pointer-events-auto relative overflow-hidden flex flex-col min-h-0"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glowing border effect */}
         <div className="absolute inset-0 rounded-3xl bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-orange-500/20 blur-xl animate-pulse" />
+
+        {/* Scrollable content area so the CTA never gets pushed off-screen */}
+        <div className="relative z-10 p-6 overflow-y-auto min-h-0 flex-1">
         
         {/* Header with celebration */}
         <div className="text-center mb-3 relative z-10">
@@ -151,6 +185,82 @@ export function EndGameScreen({
             </div>
             <div className="text-2xl font-bold text-white">{Math.max(0, averageAccuracy)}%</div>
           </motion.div>
+        </motion.div>
+
+        {/* Leaderboard / High Score */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.65 }}
+          className="mb-4 relative z-10"
+        >
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <div className="text-xs text-white/70 uppercase tracking-[0.22em]">
+              Leaderboard
+            </div>
+            <div className="text-xs text-white/60">
+              {genreLabel} record
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-black/25 backdrop-blur-md p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-bold text-white">
+                {genreLabel}
+              </div>
+              <div className="text-sm font-black text-white tabular-nums">
+                {genreHigh ? genreHigh.score.toLocaleString() : '—'}
+              </div>
+            </div>
+            <div className="mt-0.5 text-xs text-white/60">
+              {genreHigh ? `by ${genreHigh.username}` : 'No score yet — set the first one.'}
+            </div>
+
+            {showSubmit && (
+              <div className="mt-3 p-3 rounded-xl bg-gradient-to-r from-yellow-500/15 via-pink-500/10 to-purple-500/10 border border-white/10">
+                <div className="text-sm font-black text-white mb-2">
+                  New High Score!
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="Your name"
+                    className="flex-1 px-3 py-2 rounded-lg bg-black/35 border border-white/10 text-white text-sm outline-none"
+                    maxLength={18}
+                  />
+                  <button
+                    onClick={() => onSubmitHighScore(username)}
+                    className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-white text-sm font-bold"
+                  >
+                    Save
+                  </button>
+                </div>
+                <div className="mt-1 text-[11px] text-white/55">
+                  Only shown when you beat the record.
+                </div>
+              </div>
+            )}
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              {(['deep_house', 'amapiano', 'afro_house', 'gqom'] as Genre[]).map((g) => {
+                const e = leaderboard[g];
+                const name =
+                  g === 'deep_house' ? 'Deep House' :
+                  g === 'amapiano' ? 'Amapiano' :
+                  g === 'afro_house' ? 'Afro House' :
+                  'Gqom';
+                return (
+                  <div key={g} className="flex items-center justify-between rounded-lg bg-white/5 border border-white/10 px-2 py-1.5">
+                    <div className="text-[11px] text-white/70">{name}</div>
+                    <div className="text-[11px] font-bold text-white/80 tabular-nums">
+                      {e ? e.score.toLocaleString() : '—'}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </motion.div>
 
         {/* Main Yorkie Display - positioned after stats, scaled smaller to prevent overlap */}
@@ -237,19 +347,22 @@ export function EndGameScreen({
             <p className="text-base font-bold text-white italic">"{vibeScore}"</p>
           </motion.div>
         )}
+        </div>
 
-        {/* Play Again Button */}
-        <motion.button
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.1 }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={onPlayAgain}
-          className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 text-white font-bold text-base shadow-lg hover:shadow-2xl transition-all relative z-10 border-2 border-white/20"
-        >
-          Play Again
-        </motion.button>
+        {/* Sticky footer CTA */}
+        <div className="relative z-10 px-6 pb-6 pt-3 border-t border-white/10 bg-black/15 backdrop-blur-md">
+          <motion.button
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={onPlayAgain}
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 text-white font-bold text-base shadow-lg hover:shadow-2xl transition-all border-2 border-white/20"
+          >
+            Play Again
+          </motion.button>
+        </div>
       </motion.div>
     </motion.div>
   );

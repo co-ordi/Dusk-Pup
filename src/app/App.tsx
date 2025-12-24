@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, startTransition } from 'react';
+import { AnimatePresence, motion } from 'motion/react';
 import { YorkieDJ } from './components/YorkieDJ';
 import { FemaleDJ } from './components/FemaleDJ';
 import { CrowdYorkie } from './components/CrowdYorkie';
@@ -12,6 +13,7 @@ import { AFRO_EFFECT_BASE_URL, AFRO_EFFECT_FILES, COMBO_REWARD_FILES, LOGDRUM_FI
 import { Loader2, Volume2, VolumeX } from 'lucide-react';
 import { useIsMobile } from './components/ui/use-mobile';
 import { MobileControls } from './components/MobileControls';
+import { loadLeaderboard, saveLeaderboard, updateHighScore, isNewHighScore, type Leaderboard } from './utils/leaderboard';
 
 type Genre = 'deep_house' | 'amapiano' | 'afro_house' | 'gqom';
 
@@ -71,6 +73,18 @@ function App() {
   const [aiComment, setAiComment] = useState<string | null>(null);
   const [hitAccuracies, setHitAccuracies] = useState<number[]>([]);
   const [endGameData, setEndGameData] = useState<any>(null);
+  const [leaderboard, setLeaderboard] = useState<Leaderboard>(() => {
+    try {
+      return loadLeaderboard();
+    } catch {
+      return {
+        deep_house: null,
+        amapiano: null,
+        afro_house: null,
+        gqom: null,
+      };
+    }
+  });
   const [crowdYorkies, setCrowdYorkies] = useState<CrowdYorkieData[]>([]);
   const [excitedYorkies, setExcitedYorkies] = useState<Set<string>>(new Set());
   const [missStreak, setMissStreak] = useState(0);
@@ -79,6 +93,8 @@ function App() {
   const [hitBeats, setHitBeats] = useState<Set<string>>(new Set()); // Track beats that were hit for animation
   const [comboMilestonesReached, setComboMilestonesReached] = useState<Set<number>>(new Set()); // Track combo milestones
   const [comboReward, setComboReward] = useState<{ combo: number; id: string; variant: ComboRewardVariant } | null>(null);
+  const [flyingDog, setFlyingDog] = useState<{ id: string; dogImage: string; direction: 'left' | 'right'; isMobile: boolean } | null>(null);
+  const [landedDogs, setLandedDogs] = useState<Array<{ id: string; dogImage: string; x: number; y: number }>>([]);
   const [menuMusicStatus, setMenuMusicStatus] = useState<'idle' | 'loading' | 'playing' | 'blocked'>('idle');
   
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -424,7 +440,7 @@ function App() {
       // Randomize once playback is allowed/buffering.
       setTimeout(() => tryRandomSeekMenuMusic(a), 0);
       // Slightly louder in-game mixes across genres (keep subtle).
-      fadeAudio(a, 0.23, 900, gameMusicFadeRafRef);
+      fadeAudio(a, 0.26, 900, gameMusicFadeRafRef);
     }).catch(() => {
       // If blocked, player can still play silently; they can toggle menu music to grant permission.
     });
@@ -554,7 +570,7 @@ function App() {
 
     // Slightly lower logdrums so they sit under the mix; keep combo rewards louder.
     // Lighter button SFX so the in-game mixes stay on top (keep quieter than combo rewards).
-    playAfroBuffer(ctx, audioBuffer, { volume: 0.165, maxSeconds: 20, fadeSeconds: 0.25 });
+    playAfroBuffer(ctx, audioBuffer, { volume: 0.155, maxSeconds: 20, fadeSeconds: 0.25 });
   };
 
   const playComboRewardSound = () => {
@@ -583,29 +599,28 @@ function App() {
     playAfroBuffer(ctx, audioBuffer, { volume: 0.255, maxSeconds: 8, fadeSeconds: 0.45 });
   };
 
-  // Spawn crowd Yorkie - limit to 30 for better performance
+  // Spawn crowd Yorkie - limit to 40 (mobile/desktop friendly)
   const spawnCrowdYorkie = useCallback(() => {
     setCrowdYorkies(prev => {
-      if (prev.length >= 30) return prev;
-    
-      // Position Yorkies in rows below the main Yorkie
-      // Main Yorkie is centered, so position crowd around it
-      const row = Math.floor(prev.length / 8); // 8 per row for better spacing
-      const col = prev.length % 8;
-      
-      // Center the crowd with spacing - use pixel values for bottom positioning
-      const startX = 10; // Start position percentage
-      const spacing = 11; // Spacing between Yorkies percentage
-      const startY = 10; // Start from bottom in pixels
-      const rowSpacing = 50; // Vertical spacing between rows in pixels
-    
+      if (prev.length >= 40) return prev;
+
+      // Position Yorkies randomly across the dance floor area
+      // Dance floor is 160px high, yorkies are ~48px tall
+      const danceFloorWidth = 100; // percentage
+      const danceFloorHeight = 160; // pixels
+      const yorkieHeight = 48; // pixels
+
+      // Random position within dance floor bounds
+      const x = Math.random() * (danceFloorWidth - 10) + 5; // 5-95% to keep them on screen
+      const y = Math.random() * (danceFloorHeight - yorkieHeight - 20) + 10; // 10-92px to fit within dance floor
+
     const newYorkie: CrowdYorkieData = {
       id: `yorkie-${Date.now()}-${Math.random()}`,
-        x: startX + col * spacing,
-        y: startY + row * rowSpacing,
+        x: x,
+        y: y,
       variant: Math.random() > 0.5 ? 'standing' : 'sitting',
     };
-    
+
       return [...prev, newYorkie];
     });
   }, []);
@@ -656,10 +671,13 @@ function App() {
     // Start in-game genre music (amapiano currently supported).
     kickGameMusicFromGesture(selectedGenre);
 
+    // Trigger resume in the gesture stack (Safari/Chrome autoplay rules are strict about timing).
     const ctx = ensureAudioContext();
-    if (ctx?.state && ctx.state !== 'running') {
-      await ctx.resume();
-    }
+    const resumePromise =
+      ctx?.state && ctx.state !== 'running'
+        ? ctx.resume()
+        : Promise.resolve();
+    await resumePromise;
 
     // Load AfroEffects samples (once). If loading fails, we still start the game and fall back to the oscillator.
     try {
@@ -712,16 +730,31 @@ function App() {
   // Track last beat spawn time per lane to prevent overlapping
   const lastBeatTimePerLaneRef = useRef<number[]>([0, 0, 0, 0]);
   const selectedGenreRef = useRef<Genre>(selectedGenre);
+  const leaderboardRef = useRef<Leaderboard>(leaderboard);
   
   // Update genre ref when it changes
   useEffect(() => {
     selectedGenreRef.current = selectedGenre;
   }, [selectedGenre]);
+
+  useEffect(() => {
+    leaderboardRef.current = leaderboard;
+    // Persist leaderboard changes
+    try {
+      saveLeaderboard(leaderboard);
+    } catch {
+      // ignore
+    }
+  }, [leaderboard]);
   
   const generateBeatRef = useRef<(elapsed: number) => void>((elapsed: number) => {
     const bpm = GENRE_BPMS[selectedGenreRef.current];
     const beatInterval = (60 / bpm) * 1000;
-    const minSpacing = beatInterval * 0.6; // Minimum 60% of beat interval between beats in same lane
+    // Prevent "note stacking" in the same lane:
+    // - Require a stronger minimum spacing per lane
+    // - Scale spacing with fall duration so faster genres still don't pile up visually
+    const fallDuration = Math.round((100 / bpm) * 2500);
+    const minSpacing = Math.max(beatInterval * 0.9, fallDuration * 0.65);
     
     // Limit total beats to prevent performance issues
     setBeats(prev => {
@@ -759,6 +792,7 @@ function App() {
       playEndGameSfx();
     }
     setGameState('ended');
+    const genreAtEnd = selectedGenreRef.current;
     // Calculate average accuracy: hitAccuracies now stores accuracy percentages directly
     const averageAccuracy = hitAccuracies.length > 0 
       ? Math.round(hitAccuracies.reduce((a, b) => a + b, 0) / hitAccuracies.length)
@@ -784,7 +818,11 @@ function App() {
       "Perfect blend of smooth transitions and energetic drops"
     ];
 
+    const currentLb = leaderboardRef.current;
+    const newHigh = isNewHighScore(currentLb, genreAtEnd, score);
+
     setEndGameData({
+      genre: genreAtEnd,
       totalScore: score,
       averageAccuracy,
       maxCombo,
@@ -792,8 +830,10 @@ function App() {
       setDescription: descriptions[Math.floor(Math.random() * descriptions.length)],
       vibeScore: vibeScores[Math.floor(Math.random() * vibeScores.length)],
       crowdSize: crowdYorkies.length,
+      isNewHighScore: newHigh,
+      highScoreSubmitted: false,
     });
-  }, [score, combo, maxCombo, hitAccuracies, crowdYorkies.length]);
+  }, [score, maxCombo, hitAccuracies, crowdYorkies.length]);
 
   useEffect(() => {
     if (gameState !== 'playing') {
@@ -958,6 +998,19 @@ function App() {
           const rewardId = `combo-reward-${Date.now()}-${Math.random()}`;
           const variant = (Math.floor(Math.random() * 3) as unknown) as ComboRewardVariant;
           setComboReward({ combo: newCombo, id: rewardId, variant });
+
+          // Trigger flying dog animation (mobile-optimized)
+          const dogImages = ['/DogFriends/Subject copy 5.png', '/DogFriends/Subject copy 6.png'];
+          const selectedDogIndex = Math.floor(Math.random() * dogImages.length);
+          const selectedDog = dogImages[selectedDogIndex];
+          const dogId = `flying-dog-${Date.now()}-${Math.random()}`;
+          setFlyingDog({
+            id: dogId,
+            dogImage: selectedDog,
+            direction: selectedDogIndex === 0 ? 'right' : 'left',
+            isMobile: isMobile
+          });
+
           if (comboRewardClearTimeoutRef.current) {
             window.clearTimeout(comboRewardClearTimeoutRef.current);
           }
@@ -1051,17 +1104,20 @@ function App() {
 
   // Memoize crowd Yorkies rendering data
   const crowdYorkiesData = useMemo(() => {
+    const sizeScale =
+      crowdYorkies.length >= 38 ? 0.72 : crowdYorkies.length >= 32 ? 0.78 : crowdYorkies.length >= 26 ? 0.85 : 0.92;
     return crowdYorkies.map((yorkie, index) => ({
       ...yorkie,
       index,
       isExcited: excitedYorkies.has(yorkie.id),
+      sizeScale,
     }));
   }, [crowdYorkies, excitedYorkies]);
 
   if (gameState === 'menu') {
     return (
       <div
-        className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-pink-900 flex items-center justify-center p-6"
+        className="min-h-screen bg-gradient-to-br from-indigo-950 via-purple-900 to-pink-900 flex items-center justify-center p-6 relative overflow-hidden"
         style={{ backgroundColor: '#0f0f23' }}
         onPointerDown={() => {
           if (menuMusicNeedsKickRef.current) kickMenuMusicFromGesture();
@@ -1073,6 +1129,33 @@ function App() {
           if (menuMusicNeedsKickRef.current) kickMenuMusicFromGesture();
         }}
       >
+        {/* Cover image wash (menu) */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage: 'url(\"/Image/Cover%20Image.jpeg\")',
+            backgroundSize: 'cover',
+            backgroundPosition: '50% center',
+            opacity: 0.12,
+            transform: 'scale(1.06)',
+            filter: 'saturate(1.05) contrast(1.05)',
+          }}
+        />
+
+        {/* Animated sunset gradient (menu) */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background:
+              'radial-gradient(circle at 25% 20%, rgba(168,85,247,0.35) 0%, rgba(236,72,153,0.18) 35%, rgba(0,0,0,0) 70%),' +
+              'radial-gradient(circle at 80% 40%, rgba(251,146,60,0.22) 0%, rgba(139,92,246,0.12) 40%, rgba(0,0,0,0) 75%),' +
+              'linear-gradient(135deg, rgba(17,24,39,0.0) 0%, rgba(139,92,246,0.08) 40%, rgba(236,72,153,0.06) 100%)',
+            backgroundSize: '220% 220%',
+            animation: 'sunsetDrift 22s ease-in-out infinite, sunsetPulse 10s ease-in-out infinite',
+            mixBlendMode: 'screen',
+          }}
+        />
+
         {/* Menu music toggle (subtle, top-left) */}
         <div className="fixed top-4 left-4 z-50 pointer-events-auto">
           <button
@@ -1112,18 +1195,17 @@ function App() {
           </button>
         </div>
 
-        <div className="text-center max-w-2xl w-full">
-          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-200 via-pink-200 to-orange-200 bg-clip-text text-transparent mb-2 drop-shadow-2xl">
+        <div className="text-center max-w-2xl w-full" style={{ marginTop: '-2rem' }}>
+          <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-purple-200 via-pink-200 to-orange-200 bg-clip-text text-transparent mb-1 drop-shadow-2xl pulse-text" style={{ letterSpacing: '0.1em', marginTop: '-0.5rem' }}>
             DUSK PUP
           </h1>
-          <p className="text-xl text-purple-200 mb-4 font-light">By Dusk</p>
-          
-          <div className="mb-6 transform scale-75">
-            <YorkieDJ mood="idle" />
-          </div>
+          <p className="text-xl text-pink-300 mb-3 font-light glitter-text" style={{ letterSpacing: '0.08em', marginTop: '-0.25rem' }}>By Dusk</p>
+
+          {/* Spacer to maintain original layout */}
+          <div className="mb-6 h-44"></div>
 
           {/* Genre Selection */}
-          <div className="mb-6">
+          <div className="mb-6" style={{ marginTop: '1.5rem' }}>
             <p className="text-xs text-gray-300 uppercase tracking-wider mb-3">Select Your Vibe</p>
             <div className="grid grid-cols-2 gap-2 max-w-md mx-auto">
               {(Object.keys(GENRE_BPMS) as Genre[]).map(genre => (
@@ -1163,7 +1245,15 @@ function App() {
     return (
       <EndGameScreen
         {...endGameData}
+        leaderboard={leaderboard}
+        onSubmitHighScore={(username: string) => {
+          const genre = endGameData.genre as 'deep_house' | 'amapiano' | 'afro_house' | 'gqom';
+          const updated = updateHighScore(leaderboardRef.current, genre, username, endGameData.totalScore);
+          setLeaderboard(updated);
+          setEndGameData((prev: any) => (prev ? { ...prev, highScoreSubmitted: true } : prev));
+        }}
         onPlayAgain={() => {
+          stopGameMusic();
           setGameState('menu');
           setEndGameData(null);
         }}
@@ -1172,6 +1262,7 @@ function App() {
   }
 
   const progress = currentTime / GAME_DURATION;
+  const eclipseOpacity = Math.max(0, Math.min(0.78, (progress - 0.18) / 0.82));
 
   return (
     <div 
@@ -1196,6 +1287,29 @@ function App() {
       {/* Animated background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-500/5 to-orange-500/10" />
+        {/* Slow moving sunset wash */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'radial-gradient(circle at 30% 25%, rgba(168,85,247,0.28) 0%, rgba(236,72,153,0.14) 40%, rgba(0,0,0,0) 75%),' +
+              'radial-gradient(circle at 85% 35%, rgba(251,146,60,0.18) 0%, rgba(139,92,246,0.10) 45%, rgba(0,0,0,0) 80%)',
+            backgroundSize: '220% 220%',
+            animation: 'sunsetDrift 26s ease-in-out infinite, sunsetPulse 12s ease-in-out infinite',
+            mixBlendMode: 'screen',
+            opacity: 0.8,
+          }}
+        />
+        {/* Eclipse fade as the game progresses */}
+        <div
+          className="absolute inset-0"
+          style={{
+            opacity: eclipseOpacity,
+            background:
+              'radial-gradient(circle at 50% 22%, rgba(255,186,120,0.10) 0%, rgba(88,28,135,0.20) 35%, rgba(3,7,18,0.78) 72%, rgba(0,0,0,0.92) 100%)',
+            mixBlendMode: 'multiply',
+          }}
+        />
         {backgroundParticles.map((particle) => (
           <div
             key={particle.id}
@@ -1218,6 +1332,64 @@ function App() {
       />
       
       <ComboRewardToast reward={comboReward} />
+
+      {/* Flying Dog Animation */}
+      <AnimatePresence>
+        {flyingDog && (
+          <motion.div
+            key={flyingDog.id}
+            className="fixed z-60 pointer-events-none"
+            initial={{
+              x: flyingDog.direction === 'right' ? '-80px' : 'calc(100vw + 80px)',
+              y: flyingDog.isMobile ? Math.random() * 80 + 40 : Math.random() * 100 + 50, // Start high up (mobile-optimized)
+              rotate: 0,
+              scale: flyingDog.isMobile ? 0.6 : 0.8 // Smaller on mobile
+            }}
+            animate={{
+              x: flyingDog.direction === 'right' ? 'calc(100vw + 80px)' : '-80px',
+              y: flyingDog.isMobile ? 380 : 420, // Land on dance floor (adjusted for mobile)
+              rotate: flyingDog.direction === 'right' ? 720 : -720, // Spin in flight direction
+              scale: flyingDog.isMobile ? 0.6 : 0.8
+            }}
+            exit={{
+              opacity: 0,
+              scale: flyingDog.isMobile ? 0.4 : 0.5
+            }}
+            transition={{
+              duration: flyingDog.isMobile ? 2.0 : 2.5, // Slightly faster on mobile
+              ease: 'easeOut'
+            }}
+            onAnimationComplete={() => {
+              // Add dog to landed dogs on dance floor (same area as yorkies)
+              if (flyingDog) {
+                const landX = Math.random() * 80 + 10; // Random horizontal position (10-90%)
+                const landY = Math.random() * 40 + 8; // Random vertical position matching yorkie range (8-48px from bottom)
+                setLandedDogs(prev => [...prev.slice(-4), { // Keep only last 5 landed dogs
+                  id: flyingDog.id,
+                  dogImage: flyingDog.dogImage,
+                  x: landX,
+                  y: landY
+                }]);
+              }
+              setFlyingDog(null);
+            }}
+          >
+            <img
+              src={flyingDog.dogImage}
+              alt="Flying Dog Friend"
+              width={flyingDog.isMobile ? "45" : "60"}
+              height={flyingDog.isMobile ? "45" : "60"}
+              style={{
+                imageRendering: 'pixelated',
+                filter: flyingDog.isMobile
+                  ? 'drop-shadow(0 0 6px rgba(255,255,255,0.5))'
+                  : 'drop-shadow(0 0 8px rgba(255,255,255,0.6))' // Subtle glow on mobile
+              }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       {/* Dancefloor Area - Yorkie DJ and crowd together */}
       <div className="relative flex justify-center py-0" style={{ 
@@ -1297,7 +1469,8 @@ function App() {
                 zIndex: Math.floor(yorkieData.y) + 20,
                 willChange: 'transform',
                 pointerEvents: 'none',
-                transform: `translate3d(0, 0, 0)`,
+                transform: `translate3d(0, 0, 0) scale(${yorkieData.sizeScale})`,
+                transformOrigin: 'bottom center',
               }}
             >
               <CrowdYorkie
@@ -1307,6 +1480,39 @@ function App() {
                 variant={yorkieData.variant}
               />
             </div>
+          ))}
+
+          {/* Landed Dog Friends on the same dance floor */}
+          {landedDogs.map((dog, index) => (
+            <motion.div
+              key={dog.id}
+              className="absolute"
+              style={{
+                left: `${dog.x}%`,
+                bottom: `${dog.y}px`,
+                zIndex: Math.floor(dog.y) + 15, // Slightly behind yorkies
+                willChange: 'transform',
+                pointerEvents: 'none',
+                transform: 'translate3d(0, 0, 0)',
+                transformOrigin: 'bottom center',
+              }}
+              initial={{ scale: 0.4, opacity: 0 }}
+              animate={{ scale: isMobile ? 0.5 : 0.6, opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            >
+              <img
+                src={dog.dogImage}
+                alt="Landed Dog Friend"
+                width={isMobile ? "32" : "40"}
+                height={isMobile ? "32" : "40"}
+                style={{
+                  imageRendering: 'pixelated',
+                  filter: isMobile
+                    ? 'drop-shadow(0 0 3px rgba(255,255,255,0.3))'
+                    : 'drop-shadow(0 0 4px rgba(255,255,255,0.4))'
+                }}
+              />
+            </motion.div>
           ))}
         </div>
       </div>
