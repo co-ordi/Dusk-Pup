@@ -17,16 +17,9 @@ export const YorkieDJ = memo(function YorkieDJ({ mood }: YorkieDJProps) {
         };
       case 'perfect':
         return {
-          scale: [1, 1.4, 1.2, 1.4, 1],
+          scale: [1, 1.3, 1.15, 1.3, 1],
           rotate: [0, 360],
-          filter: [
-            'brightness(1) saturate(1)',
-            'brightness(1.5) saturate(1.8)',
-            'brightness(2) saturate(2.2)',
-            'brightness(1.5) saturate(1.8)',
-            'brightness(1) saturate(1)'
-          ],
-          transition: { duration: 1.2, repeat: 0 }
+          transition: { duration: 1.0, repeat: 0 }
         };
       case 'miss':
         return { 

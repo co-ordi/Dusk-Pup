@@ -27,12 +27,11 @@ export const CrowdYorkie = memo(function CrowdYorkie({ index, combo, isExcited =
   }, [combo]);
   const delay = (index * 0.1) % 1;
 
-  // Combo-based dance flip timing - faster flipping with higher combos
+  // Simplified dance flip timing for better performance
   const getFlipSpeed = () => {
-    if (combo >= 25) return { min: 0.8, max: 2.0 }; // Very fast for high combos
-    if (combo >= 15) return { min: 1.2, max: 2.5 }; // Fast for good combos
-    if (combo >= 8) return { min: 1.8, max: 3.2 };  // Medium for decent combos
-    return { min: 2.5, max: 4.5 }; // Slow for low combos
+    if (combo >= 15) return { min: 2.0, max: 3.5 }; // Moderate speed for good combos
+    if (combo >= 8) return { min: 2.5, max: 4.0 }; // Medium speed for decent combos
+    return { min: 3.0, max: 4.5 }; // Slow for low combos
   };
 
   const flipSpeed = getFlipSpeed();

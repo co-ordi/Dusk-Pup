@@ -97,6 +97,10 @@ function App() {
   const [landedDogs, setLandedDogs] = useState<Array<{ id: string; dogImage: string; x: number; y: number }>>([]);
   const [specialGuests, setSpecialGuests] = useState<Set<string>>(new Set()); // Track which DogFriends appeared
 
+  // Performance monitoring
+  const totalAnimatedElements = crowdYorkies.length + landedDogs.length + (flyingDog ? 1 : 0);
+  const performanceMode = totalAnimatedElements > 25; // Enable performance mode when crowded
+
   // Memoized random values for all landed dogs to avoid hooks in map
   const landedDogRandoms = useMemo(() => {
     const randoms: Record<string, { flipDelay: number; drift1: number; drift2: number; driftDuration: number }> = {};
@@ -635,9 +639,11 @@ function App() {
   // Spawn crowd Pup - limit to 50 for maximum fun, but continue scoring
   const spawnCrowdYorkie = useCallback(() => {
     setCrowdYorkies(prev => {
-      if (prev.length >= 50) {
+      // Performance limit: reduce spawning when too many elements
+      const maxPups = performanceMode ? 30 : 50;
+      if (prev.length >= maxPups) {
         // Still give score bonus even when not spawning more pups
-        setScore(currentScore => currentScore + 50); // Bonus points for continued combos
+        setScore(currentScore => currentScore + (performanceMode ? 25 : 50)); // Reduced bonus in performance mode
         return prev;
       }
 
@@ -1439,40 +1445,41 @@ function App() {
         willChange: 'contents',
       }}
     >
-      {/* Animated background */}
+      {/* Simplified animated background for performance */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-500/5 to-orange-500/10" />
-        {/* Slow moving sunset wash */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-purple-500/3 to-orange-500/5" />
+        {/* Reduced sunset wash animation */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              'radial-gradient(circle at 30% 25%, rgba(168,85,247,0.28) 0%, rgba(236,72,153,0.14) 40%, rgba(0,0,0,0) 75%),' +
-              'radial-gradient(circle at 85% 35%, rgba(251,146,60,0.18) 0%, rgba(139,92,246,0.10) 45%, rgba(0,0,0,0) 80%)',
+              'radial-gradient(circle at 30% 25%, rgba(168,85,247,0.18) 0%, rgba(236,72,153,0.08) 40%, rgba(0,0,0,0) 75%),' +
+              'radial-gradient(circle at 85% 35%, rgba(251,146,60,0.12) 0%, rgba(139,92,246,0.06) 45%, rgba(0,0,0,0) 80%)',
             backgroundSize: '220% 220%',
-            animation: 'sunsetDrift 26s ease-in-out infinite, sunsetPulse 12s ease-in-out infinite',
+            animation: crowdYorkies.length > 20 ? 'none' : 'sunsetDrift 32s ease-in-out infinite', // Disable when crowded
             mixBlendMode: 'screen',
-            opacity: 0.8,
+            opacity: crowdYorkies.length > 20 ? 0.4 : 0.6, // Reduce opacity when crowded
           }}
         />
-        {/* Eclipse fade as the game progresses */}
+        {/* Simplified eclipse fade */}
         <div
           className="absolute inset-0"
           style={{
-            opacity: eclipseOpacity,
+            opacity: eclipseOpacity * 0.7, // Reduced opacity for performance
             background:
-              'radial-gradient(circle at 50% 22%, rgba(255,186,120,0.10) 0%, rgba(88,28,135,0.20) 35%, rgba(3,7,18,0.78) 72%, rgba(0,0,0,0.92) 100%)',
+              'radial-gradient(circle at 50% 22%, rgba(255,186,120,0.06) 0%, rgba(88,28,135,0.12) 35%, rgba(3,7,18,0.6) 72%, rgba(0,0,0,0.8) 100%)',
             mixBlendMode: 'multiply',
           }}
         />
-        {backgroundParticles.map((particle) => (
+        {/* Reduced particle count for performance */}
+        {backgroundParticles.slice(0, crowdYorkies.length > 20 ? 15 : 30).map((particle) => (
           <div
             key={particle.id}
-            className="absolute w-1 h-1 bg-purple-400/20 rounded-full"
+            className="absolute w-1 h-1 bg-purple-400/15 rounded-full"
             style={{
               left: `${particle.left}%`,
               top: `${particle.top}%`,
-              animation: `pulse ${particle.duration}s ease-in-out infinite`,
+              animation: crowdYorkies.length > 20 ? 'none' : `pulse ${particle.duration}s ease-in-out infinite`,
               animationDelay: `${particle.delay}s`,
             }}
           />
@@ -1503,7 +1510,7 @@ function App() {
             animate={{
               x: flyingDog.direction === 'right' ? 'calc(100vw + 80px)' : '-80px',
               y: flyingDog.isMobile ? 380 : 420, // Land on dance floor (adjusted for mobile)
-              rotate: flyingDog.direction === 'right' ? 720 : -720, // Spin in flight direction
+              rotate: flyingDog.direction === 'right' ? 360 : -360, // Single spin for performance
               scale: flyingDog.isMobile ? 0.6 : 0.8
             }}
             exit={{
@@ -1511,7 +1518,7 @@ function App() {
               scale: flyingDog.isMobile ? 0.4 : 0.5
             }}
             transition={{
-              duration: flyingDog.isMobile ? 2.0 : 2.5, // Slightly faster on mobile
+              duration: flyingDog.isMobile ? 1.8 : 2.2, // Faster animation for performance
               ease: 'easeOut'
             }}
             onAnimationComplete={() => {
@@ -1519,7 +1526,7 @@ function App() {
               if (flyingDog) {
                 const landX = Math.random() * 80 + 10; // Random horizontal position (10-90%)
                 const landY = Math.random() * 40 + 8; // Random vertical position matching yorkie range (8-48px from bottom)
-                setLandedDogs(prev => [...prev.slice(-3), { // Keep only last 4 landed dogs for performance
+                setLandedDogs(prev => [...prev.slice(-2), { // Keep only last 3 landed dogs for better performance
                   id: flyingDog.id,
                   dogImage: flyingDog.dogImage,
                   x: landX,
@@ -1659,23 +1666,19 @@ function App() {
             }).catch(() => {});
             // #endregion
 
-            // Combo-based dance flip timing - faster flipping with higher combos
+            // Simplified dance flip timing for better performance
             const getFlipSpeed = () => {
-              if (combo >= 25) return { min: 0.8, max: 2.0 }; // Very fast for high combos
-              if (combo >= 15) return { min: 1.2, max: 2.5 }; // Fast for good combos
-              if (combo >= 8) return { min: 1.8, max: 3.2 };  // Medium for decent combos
-              return { min: 2.5, max: 4.5 }; // Slow for low combos
+              if (combo >= 20) return { min: 1.5, max: 3.0 }; // Moderate speed for high combos
+              if (combo >= 10) return { min: 2.0, max: 3.5 }; // Medium speed for decent combos
+              return { min: 2.5, max: 4.0 }; // Slow for low combos
             };
 
             const flipSpeed = getFlipSpeed();
-            // Use pre-calculated random values (no hooks in map!)
-            // For performance, limit flip complexity when many dogs are present
-            const maxDogs = 4;
-            const dogIndex = index;
-            const shouldSimplify = landedDogs.length > maxDogs && dogIndex >= maxDogs;
+            // Aggressive performance optimization - reduce animation complexity
+            const shouldSimplify = performanceMode || isMobile || landedDogs.length > 2 || index > 1;
 
             const flipDuration = shouldSimplify
-              ? flipSpeed.max // Use max duration for extra dogs to reduce animation complexity
+              ? flipSpeed.max // Simplified animation for performance
               : Math.random() * (flipSpeed.max - flipSpeed.min) + flipSpeed.min;
 
             return (
@@ -1699,7 +1702,7 @@ function App() {
                   opacity: 1,
                   scaleX: shouldSimplify ? [1, -1, 1] : [1, -1, 1], // Simplified animation for performance
                   x: shouldSimplify
-                    ? [0, (landedDogRandoms[dog.id]?.drift1 || 0) * 0.5, (landedDogRandoms[dog.id]?.drift2 || 0) * 0.5, 0] // Reduced drift
+                    ? [0, (landedDogRandoms[dog.id]?.drift1 || 0) * 0.3, 0] // Minimal drift for performance
                     : [0, landedDogRandoms[dog.id]?.drift1 || 0, landedDogRandoms[dog.id]?.drift2 || 0, 0] // Full drift
                 }}
                 transition={{
@@ -1712,8 +1715,8 @@ function App() {
                   },
                   x: {
                     duration: shouldSimplify
-                      ? (landedDogRandoms[dog.id]?.driftDuration || 20) * 1.5 // Slower drift for simplified dogs
-                      : landedDogRandoms[dog.id]?.driftDuration || 20,
+                      ? 25 // Fixed slow duration for simplified dogs
+                      : Math.max(20, landedDogRandoms[dog.id]?.driftDuration || 20), // Minimum 20s for full animation
                     repeat: Infinity,
                     ease: 'easeInOut',
                   }
