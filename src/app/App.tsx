@@ -1110,7 +1110,7 @@ function App() {
         setTimeout(() => setIsPerfectHit(false), 500);
       }
       
-      if (newCombo > 0 && newCombo % 7 === 0 && audioContextRef.current) { // Less frequent combo rewards for performance
+      if (newCombo > 0 && newCombo % 6 === 0 && audioContextRef.current) { // Less frequent combo rewards for performance
         // #region agent log - hypothesis D: Combo reward state issues
         fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
           method: 'POST',
