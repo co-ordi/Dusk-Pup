@@ -366,7 +366,7 @@ function App() {
       menuMusicNeedsKickRef.current = false;
       // Try to jump to a random point once playback is permitted.
       tryRandomSeekMenuMusic(audio);
-      await fadeAudio(audio, 0.22, 900, menuMusicFadeRafRef);
+      await fadeAudio(audio, 0.38, 900, menuMusicFadeRafRef);
       setMenuMusicStatus('playing');
     } catch {
       // Autoplay is often blocked until user interaction; we'll retry on first click/tap.
@@ -392,7 +392,7 @@ function App() {
       // After play is allowed, attempt a random seek; if Safari refuses, we just keep playing.
       // Delay a tick so metadata/seekable has a chance to populate.
       setTimeout(() => tryRandomSeekMenuMusic(audio), 0);
-      fadeAudio(audio, 0.22, 900, menuMusicFadeRafRef).then(() => setMenuMusicStatus('playing'));
+      fadeAudio(audio, 0.38, 900, menuMusicFadeRafRef).then(() => setMenuMusicStatus('playing'));
 
       // Safari sometimes resolves play() but doesn't actually start playback after a refresh.
       // Add a small watchdog to detect stalled playback and re-prompt for a user gesture.
@@ -477,7 +477,7 @@ function App() {
       // Randomize once playback is allowed/buffering.
       setTimeout(() => tryRandomSeekMenuMusic(a), 0);
       // Slightly louder in-game mixes across genres (keep subtle).
-      fadeAudio(a, 0.26, 900, gameMusicFadeRafRef);
+      fadeAudio(a, 0.42, 900, gameMusicFadeRafRef);
     }).catch(() => {
       // If blocked, player can still play silently; they can toggle menu music to grant permission.
     });
@@ -550,7 +550,7 @@ function App() {
     const frequencies = [261.63, 329.63, 392.0, 523.25];
     oscillator.frequency.value = frequencies[lane];
     oscillator.type = 'sine';
-    gainNode.gain.setValueAtTime(0.22, ctx.currentTime);
+    gainNode.gain.setValueAtTime(0.12, ctx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
     oscillator.connect(gainNode);
     gainNode.connect(ctx.destination);
@@ -607,7 +607,7 @@ function App() {
 
     // Slightly lower logdrums so they sit under the mix; keep combo rewards louder.
     // Lighter button SFX so the in-game mixes stay on top (keep quieter than combo rewards).
-    playAfroBuffer(ctx, audioBuffer, { volume: 0.155, maxSeconds: 20, fadeSeconds: 0.25 });
+    playAfroBuffer(ctx, audioBuffer, { volume: 0.085, maxSeconds: 20, fadeSeconds: 0.25 });
   };
 
   const playComboRewardSound = () => {
@@ -620,7 +620,7 @@ function App() {
     if (!audioBuffer) return;
 
     // Combo wins: longer cap and smoother/longer fade so it feels earned (and not abruptly cut).
-    playAfroBuffer(ctx, audioBuffer, { volume: 0.245, maxSeconds: 20, fadeSeconds: 0.7 });
+    playAfroBuffer(ctx, audioBuffer, { volume: 0.165, maxSeconds: 20, fadeSeconds: 0.7 });
   };
 
   const playEndGameSfx = () => {
@@ -633,7 +633,7 @@ function App() {
     if (!audioBuffer) return;
 
     // Short celebratory stinger (not the mixes, not logdrums) with a tidy fade.
-    playAfroBuffer(ctx, audioBuffer, { volume: 0.255, maxSeconds: 8, fadeSeconds: 0.45 });
+    playAfroBuffer(ctx, audioBuffer, { volume: 0.185, maxSeconds: 8, fadeSeconds: 0.45 });
   };
 
   // Spawn crowd Pup - limit to 50 for maximum fun, but continue scoring
