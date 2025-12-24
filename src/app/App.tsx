@@ -95,6 +95,23 @@ function App() {
   const [comboReward, setComboReward] = useState<{ combo: number; id: string; variant: ComboRewardVariant } | null>(null);
   const [flyingDog, setFlyingDog] = useState<{ id: string; dogImage: string; direction: 'left' | 'right'; isMobile: boolean } | null>(null);
   const [landedDogs, setLandedDogs] = useState<Array<{ id: string; dogImage: string; x: number; y: number }>>([]);
+  const [specialGuests, setSpecialGuests] = useState<Set<string>>(new Set()); // Track which DogFriends appeared
+
+  // Memoized random values for all landed dogs to avoid hooks in map
+  const landedDogRandoms = useMemo(() => {
+    const randoms: Record<string, { flipDelay: number; drift1: number; drift2: number; driftDuration: number }> = {};
+    landedDogs.forEach(dog => {
+      if (!randoms[dog.id]) {
+        randoms[dog.id] = {
+          flipDelay: Math.random() * 2 + 1,
+          drift1: Math.random() * 40 - 20,
+          drift2: Math.random() * 40 - 20,
+          driftDuration: 15 + Math.random() * 10
+        };
+      }
+    });
+    return randoms;
+  }, [landedDogs.map(d => d.id).join(',')]); // Depend on dog IDs to recalculate when dogs change
   const [menuMusicStatus, setMenuMusicStatus] = useState<'idle' | 'loading' | 'playing' | 'blocked'>('idle');
   
   const animationFrameRef = useRef<number | undefined>(undefined);
@@ -237,6 +254,22 @@ function App() {
   }, [gameState]);
 
   useEffect(() => {
+    // #region agent log - hypothesis B: Audio context initialization
+    fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'App.tsx:audioContext.useEffect',
+        message: 'Audio context initialization',
+        data: { hasAudioContext: !!audioContextRef.current },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'initial',
+        hypothesisId: 'B'
+      })
+    }).catch(() => {});
+    // #endregion
+
     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
     return () => {
       if (audioContextRef.current) {
@@ -599,10 +632,14 @@ function App() {
     playAfroBuffer(ctx, audioBuffer, { volume: 0.255, maxSeconds: 8, fadeSeconds: 0.45 });
   };
 
-  // Spawn crowd Yorkie - limit to 40 (mobile/desktop friendly)
+  // Spawn crowd Pup - limit to 50 for maximum fun, but continue scoring
   const spawnCrowdYorkie = useCallback(() => {
     setCrowdYorkies(prev => {
-      if (prev.length >= 40) return prev;
+      if (prev.length >= 50) {
+        // Still give score bonus even when not spawning more pups
+        setScore(currentScore => currentScore + 50); // Bonus points for continued combos
+        return prev;
+      }
 
       // Position Yorkies randomly across the dance floor area
       // Dance floor is 160px high, yorkies are ~48px tall
@@ -666,6 +703,22 @@ function App() {
   }, [crowdYorkies]);
 
   const startGame = async () => {
+    // #region agent log - hypothesis B: Audio context issues
+    fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        location: 'App.tsx:startGame',
+        message: 'startGame called',
+        data: { selectedGenre, gameState },
+        timestamp: Date.now(),
+        sessionId: 'debug-session',
+        runId: 'initial',
+        hypothesisId: 'B'
+      })
+    }).catch(() => {});
+    // #endregion
+
     // Fade out menu music as we enter the game (do not await; keep gesture stack available for Safari).
     stopMenuMusic();
     // Start in-game genre music (amapiano currently supported).
@@ -721,6 +774,7 @@ function App() {
     setRecentMisses([]);
     setHitBeats(new Set());
     setComboMilestonesReached(new Set());
+    setSpecialGuests(new Set()); // Reset special guests for new game
     setGameStartTime(startTime);
     setCurrentTime(0);
     // Reset lane beat timing
@@ -808,7 +862,7 @@ function App() {
       "Golden hour vibes all the way through",
       "Pure sunset magic in every beat",
       "Dusk never looked this good",
-      "The Yorkie crowd is in love with this set"
+      "The Pup crowd is in love with this set"
     ];
 
     const descriptions = [
@@ -830,6 +884,7 @@ function App() {
       setDescription: descriptions[Math.floor(Math.random() * descriptions.length)],
       vibeScore: vibeScores[Math.floor(Math.random() * vibeScores.length)],
       crowdSize: crowdYorkies.length,
+      specialGuests: Array.from(specialGuests), // Add special guests to end game data
       isNewHighScore: newHigh,
       highScoreSubmitted: false,
     });
@@ -857,8 +912,67 @@ function App() {
     const beatInterval = (60 / bpm) * 1000;
 
     const tick = () => {
+      const startTime = performance.now();
+      // #region agent log - hypothesis E: Performance monitoring
+      fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: 'App.tsx:tick',
+          message: 'Game loop tick with performance',
+          data: {
+            elapsed: Date.now() - gameStartTimeRef.current,
+            gameState,
+            combo,
+            score,
+            activeAnimations: {
+              crowdYorkies: crowdYorkies.length,
+              landedDogs: landedDogs.length,
+              flyingDog: !!flyingDog
+            },
+            memoryEstimate: (performance as any).memory ? {
+              used: (performance as any).memory.usedJSHeapSize,
+              total: (performance as any).memory.totalJSHeapSize,
+              limit: (performance as any).memory.jsHeapSizeLimit
+            } : null
+          },
+          timestamp: Date.now(),
+          sessionId: 'debug-session',
+          runId: 'performance',
+          hypothesisId: 'E'
+        })
+      }).catch(() => {});
+      // #endregion
+
       const elapsed = Date.now() - gameStartTimeRef.current; // Use ref instead of state
       currentTimeRef.current = elapsed;
+
+      // Performance monitoring
+      const tickEndTime = performance.now();
+      const tickDuration = tickEndTime - startTime;
+
+      if (tickDuration > 16.67) { // Slower than 60fps
+        // #region agent log - hypothesis E: Slow frame detection
+        fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: 'App.tsx:tick.performance',
+            message: 'Slow frame detected',
+            data: {
+              tickDuration,
+              targetFPS: 60,
+              actualFPS: 1000 / tickDuration,
+              animationCount: crowdYorkies.length + landedDogs.length + (flyingDog ? 1 : 0)
+            },
+            timestamp: Date.now(),
+            sessionId: 'debug-session',
+            runId: 'performance',
+            hypothesisId: 'E'
+          })
+        }).catch(() => {});
+        // #endregion
+      }
       
       // Only update state every ~16ms (60fps) to reduce re-renders
       // Use startTransition for non-urgent updates
@@ -991,6 +1105,22 @@ function App() {
       }
       
       if (newCombo > 0 && newCombo % 5 === 0 && audioContextRef.current) {
+        // #region agent log - hypothesis D: Combo reward state issues
+        fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            location: 'App.tsx:comboReward.trigger',
+            message: 'Combo reward triggered',
+            data: { newCombo, audioContextState: audioContextRef.current?.state },
+            timestamp: Date.now(),
+            sessionId: 'debug-session',
+            runId: 'initial',
+            hypothesisId: 'D'
+          })
+        }).catch(() => {});
+        // #endregion
+
         const nowSec = audioContextRef.current.currentTime;
         const cooldownSec = 4;
         if (nowSec - lastComboRewardAtRef.current >= cooldownSec) {
@@ -1264,13 +1394,38 @@ function App() {
   const progress = currentTime / GAME_DURATION;
   const eclipseOpacity = Math.max(0, Math.min(0.78, (progress - 0.18) / 0.82));
 
+  // Performance monitoring for renders
+  const renderStartTime = performance.now();
+  // #region agent log - hypothesis E: Render performance
+  fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      location: 'App.tsx:render',
+      message: 'Component render with performance',
+      data: {
+        gameState,
+        combo,
+        score,
+        landedDogsCount: landedDogs.length,
+        flyingDog: !!flyingDog,
+        totalAnimations: landedDogs.length + crowdYorkies.length + (flyingDog ? 1 : 0)
+      },
+      timestamp: Date.now(),
+      sessionId: 'debug-session',
+      runId: 'performance',
+      hypothesisId: 'E'
+    })
+  }).catch(() => {});
+  // #endregion
+
   return (
-    <div 
+    <div
       className={`fixed inset-0 bg-gradient-to-br from-indigo-950 via-purple-900 to-pink-900 overflow-hidden pt-24 ${
         isMobile ? 'pb-24' : ''
-      }`} 
-      style={{ 
-        backgroundColor: '#0f0f23', 
+      }`}
+      style={{
+        backgroundColor: '#0f0f23',
         touchAction: 'none',
         userSelect: 'none',
         WebkitUserSelect: 'none',
@@ -1364,12 +1519,16 @@ function App() {
               if (flyingDog) {
                 const landX = Math.random() * 80 + 10; // Random horizontal position (10-90%)
                 const landY = Math.random() * 40 + 8; // Random vertical position matching yorkie range (8-48px from bottom)
-                setLandedDogs(prev => [...prev.slice(-4), { // Keep only last 5 landed dogs
+                setLandedDogs(prev => [...prev.slice(-3), { // Keep only last 4 landed dogs for performance
                   id: flyingDog.id,
                   dogImage: flyingDog.dogImage,
                   x: landX,
                   y: landY
                 }]);
+
+                // Track special guest appearance
+                const guestName = flyingDog.dogImage.replace('/DogFriends/', '').replace('.png', '');
+                setSpecialGuests(prev => new Set([...prev, guestName]));
               }
               setFlyingDog(null);
             }}
@@ -1483,10 +1642,46 @@ function App() {
           ))}
 
           {/* Landed Dog Friends on the same dance floor */}
-          {landedDogs.map((dog, index) => (
-            <motion.div
-              key={dog.id}
-              className="absolute"
+          {landedDogs.map((dog, index) => {
+            // #region agent log - hypothesis A: React re-render issues
+            fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                location: 'App.tsx:landedDogs.map',
+                message: 'Rendering landed dog',
+                data: { dogId: dog.id, totalDogs: landedDogs.length, combo },
+                timestamp: Date.now(),
+                sessionId: 'debug-session',
+                runId: 'initial',
+                hypothesisId: 'A'
+              })
+            }).catch(() => {});
+            // #endregion
+
+            // Combo-based dance flip timing - faster flipping with higher combos
+            const getFlipSpeed = () => {
+              if (combo >= 25) return { min: 0.8, max: 2.0 }; // Very fast for high combos
+              if (combo >= 15) return { min: 1.2, max: 2.5 }; // Fast for good combos
+              if (combo >= 8) return { min: 1.8, max: 3.2 };  // Medium for decent combos
+              return { min: 2.5, max: 4.5 }; // Slow for low combos
+            };
+
+            const flipSpeed = getFlipSpeed();
+            // Use pre-calculated random values (no hooks in map!)
+            // For performance, limit flip complexity when many dogs are present
+            const maxDogs = 4;
+            const dogIndex = index;
+            const shouldSimplify = landedDogs.length > maxDogs && dogIndex >= maxDogs;
+
+            const flipDuration = shouldSimplify
+              ? flipSpeed.max // Use max duration for extra dogs to reduce animation complexity
+              : Math.random() * (flipSpeed.max - flipSpeed.min) + flipSpeed.min;
+
+            return (
+              <motion.div
+                key={dog.id}
+                className="absolute"
               style={{
                 left: `${dog.x}%`,
                 bottom: `${dog.y}px`,
@@ -1495,25 +1690,50 @@ function App() {
                 pointerEvents: 'none',
                 transform: 'translate3d(0, 0, 0)',
                 transformOrigin: 'bottom center',
+                backfaceVisibility: 'hidden', // Performance optimization
+                WebkitBackfaceVisibility: 'hidden',
               }}
-              initial={{ scale: 0.4, opacity: 0 }}
-              animate={{ scale: isMobile ? 0.5 : 0.6, opacity: 1 }}
-              transition={{ duration: 0.5 }}
-            >
-              <img
-                src={dog.dogImage}
-                alt="Landed Dog Friend"
-                width={isMobile ? "32" : "40"}
-                height={isMobile ? "32" : "40"}
-                style={{
-                  imageRendering: 'pixelated',
-                  filter: isMobile
-                    ? 'drop-shadow(0 0 3px rgba(255,255,255,0.3))'
-                    : 'drop-shadow(0 0 4px rgba(255,255,255,0.4))'
+                initial={{ scale: 0.4, opacity: 0 }}
+                animate={{
+                  scale: isMobile ? 0.5 : 0.6,
+                  opacity: 1,
+                  scaleX: shouldSimplify ? [1, -1, 1] : [1, -1, 1], // Simplified animation for performance
+                  x: shouldSimplify
+                    ? [0, (landedDogRandoms[dog.id]?.drift1 || 0) * 0.5, (landedDogRandoms[dog.id]?.drift2 || 0) * 0.5, 0] // Reduced drift
+                    : [0, landedDogRandoms[dog.id]?.drift1 || 0, landedDogRandoms[dog.id]?.drift2 || 0, 0] // Full drift
                 }}
-              />
-            </motion.div>
-          ))}
+                transition={{
+                  duration: 0.5,
+                  scaleX: {
+                    duration: shouldSimplify ? flipDuration * 1.5 : flipDuration, // Slower flips for simplified dogs
+                    repeat: Infinity,
+                    delay: landedDogRandoms[dog.id]?.flipDelay || 1,
+                    ease: 'easeInOut',
+                  },
+                  x: {
+                    duration: shouldSimplify
+                      ? (landedDogRandoms[dog.id]?.driftDuration || 20) * 1.5 // Slower drift for simplified dogs
+                      : landedDogRandoms[dog.id]?.driftDuration || 20,
+                    repeat: Infinity,
+                    ease: 'easeInOut',
+                  }
+                }}
+              >
+                <img
+                  src={dog.dogImage}
+                  alt="Landed Dog Friend"
+                  width={isMobile ? "32" : "40"}
+                  height={isMobile ? "32" : "40"}
+                  style={{
+                    imageRendering: 'pixelated',
+                    filter: isMobile
+                      ? 'drop-shadow(0 0 3px rgba(255,255,255,0.3))'
+                      : 'drop-shadow(0 0 4px rgba(255,255,255,0.4))'
+                  }}
+                />
+              </motion.div>
+            );
+          })}
         </div>
       </div>
 
@@ -1555,6 +1775,37 @@ function App() {
         activeLanes={activeLanes}
         onPress={(laneIndex) => triggerLane(laneIndex)}
       />
+
+      {/* Performance monitoring - measure render time */}
+      {(() => {
+        const renderEndTime = performance.now();
+        const renderDuration = renderEndTime - renderStartTime;
+
+        if (renderDuration > 16.67) { // Slower than 60fps
+          // #region agent log - hypothesis E: Slow render detection
+          fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              location: 'App.tsx:render.performance',
+              message: 'Slow render detected',
+              data: {
+                renderDuration,
+                targetFPS: 60,
+                actualFPS: 1000 / renderDuration,
+                animationCount: landedDogs.length + crowdYorkies.length + (flyingDog ? 1 : 0)
+              },
+              timestamp: Date.now(),
+              sessionId: 'debug-session',
+              runId: 'performance',
+              hypothesisId: 'E'
+            })
+          }).catch(() => {});
+          // #endregion
+        }
+
+        return null; // This doesn't render anything
+      })()}
     </div>
   );
 }

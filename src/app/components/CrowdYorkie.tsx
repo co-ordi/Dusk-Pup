@@ -27,16 +27,29 @@ export const CrowdYorkie = memo(function CrowdYorkie({ index, combo, isExcited =
   }, [combo]);
   const delay = (index * 0.1) % 1;
 
+  // Combo-based dance flip timing - faster flipping with higher combos
+  const getFlipSpeed = () => {
+    if (combo >= 25) return { min: 0.8, max: 2.0 }; // Very fast for high combos
+    if (combo >= 15) return { min: 1.2, max: 2.5 }; // Fast for good combos
+    if (combo >= 8) return { min: 1.8, max: 3.2 };  // Medium for decent combos
+    return { min: 2.5, max: 4.5 }; // Slow for low combos
+  };
+
+  const flipSpeed = getFlipSpeed();
+  const flipDelay = useMemo(() => Math.random() * 2 + 1, []); // 1-3 seconds initial delay
+  const flipDuration = useMemo(() => Math.random() * (flipSpeed.max - flipSpeed.min) + flipSpeed.min, [combo]);
+
   // Select yorkie image based on index
   const yorkieImage = YORKIE_IMAGES[index % YORKIE_IMAGES.length];
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0 }}
-      animate={{ 
-        opacity: 1, 
+      animate={{
+        opacity: 1,
         scale: 1,
         y: isExcited ? [0, -12, 0] : [0, -6, 0],
+        scaleX: [1, -1, 1], // Mirror flip dance animation
       }}
       exit={{ opacity: 0, scale: 0 }}
       transition={{
@@ -46,6 +59,12 @@ export const CrowdYorkie = memo(function CrowdYorkie({ index, combo, isExcited =
           duration: isExcited ? 0.26 : bounceSpeed * 0.9,
           repeat: Infinity,
           delay,
+          ease: 'easeInOut',
+        },
+        scaleX: {
+          duration: flipDuration,
+          repeat: Infinity,
+          delay: flipDelay,
           ease: 'easeInOut',
         },
       }}

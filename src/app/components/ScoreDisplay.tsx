@@ -44,7 +44,7 @@ export const ScoreDisplay = memo(function ScoreDisplay({ score, combo, timeRemai
           >
             <Users className="w-3 h-3 text-purple-300" />
             <span className="text-[11px] font-bold text-purple-200 tabular-nums">
-              {crowdSize} Yorkies
+              {crowdSize} Pups
             </span>
           </motion.div>
         </div>

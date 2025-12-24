@@ -16,11 +16,17 @@ export const YorkieDJ = memo(function YorkieDJ({ mood }: YorkieDJProps) {
           transition: { duration: 0.28 } 
         };
       case 'perfect':
-        return { 
-          rotate: [0, -12, 12, -12, 12, 0], 
-          scale: [1, 1.28, 1.18, 1.28, 1],
-          y: [0, -28, -14, -20, 0],
-          transition: { duration: 1, repeat: 0 } 
+        return {
+          scale: [1, 1.4, 1.2, 1.4, 1],
+          rotate: [0, 360],
+          filter: [
+            'brightness(1) saturate(1)',
+            'brightness(1.5) saturate(1.8)',
+            'brightness(2) saturate(2.2)',
+            'brightness(1.5) saturate(1.8)',
+            'brightness(1) saturate(1)'
+          ],
+          transition: { duration: 1.2, repeat: 0 }
         };
       case 'miss':
         return { 

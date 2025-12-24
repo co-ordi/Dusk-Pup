@@ -19,6 +19,7 @@ interface EndGameScreenProps {
   setDescription: string;
   vibeScore: string;
   crowdSize?: number;
+  specialGuests?: string[];
   leaderboard: Leaderboard;
   isNewHighScore?: boolean;
   highScoreSubmitted?: boolean;
@@ -35,6 +36,7 @@ export function EndGameScreen({
   setDescription,
   vibeScore,
   crowdSize = 0,
+  specialGuests = [],
   leaderboard,
   isNewHighScore = false,
   highScoreSubmitted = false,
@@ -329,6 +331,36 @@ export function EndGameScreen({
                   <div className="transform scale-50 origin-bottom">
                     <CrowdYorkie index={yorkie.index} combo={maxCombo} variant="standing" />
                   </div>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Special Guests */}
+        {specialGuests && specialGuests.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.9 }}
+            className="mb-3 relative z-10"
+          >
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Star className="w-5 h-5 text-yellow-400" />
+              <span className="text-lg font-bold text-white">
+                Special Guests: {specialGuests.length} DogFriends! 🐕✨
+              </span>
+            </div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {specialGuests.map((guest, idx) => (
+                <motion.div
+                  key={guest}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ delay: 1 + idx * 0.1 }}
+                  className="px-3 py-1 rounded-full bg-gradient-to-r from-yellow-500/20 to-orange-500/20 border border-yellow-400/30 text-sm font-bold text-yellow-200"
+                >
+                  {guest}
                 </motion.div>
               ))}
             </div>
