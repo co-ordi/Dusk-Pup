@@ -13,18 +13,13 @@ export function AICommentBox({ comment }: AICommentBoxProps) {
           initial={{ opacity: 0, y: 20, scale: 0.8 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -20, scale: 0.8 }}
-          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50"
+          className="fixed bottom-4 right-4 z-50 pointer-events-none"
         >
-          <div className="relative">
-            {/* Speech bubble tail pointing up */}
-            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-0 h-0 border-l-8 border-r-8 border-b-8 border-transparent border-b-purple-600"></div>
-            
-            {/* Comment bubble */}
-            <div className="px-6 py-3 rounded-2xl bg-gradient-to-r from-purple-600 to-pink-600 shadow-2xl border-2 border-white/20">
-              <p className="text-white font-bold text-lg whitespace-nowrap">
-                {comment}
-              </p>
-            </div>
+          {/* Comment bubble (compact) */}
+          <div className="max-w-[220px] px-3 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 shadow-xl border border-white/15">
+            <p className="text-white font-semibold text-xs leading-snug">
+              {comment}
+            </p>
           </div>
         </motion.div>
       )}

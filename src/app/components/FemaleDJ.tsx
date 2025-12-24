@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import React from 'react';
+import React, { memo } from 'react';
 
 interface FemaleDJProps {
   combo: number;
@@ -7,7 +7,7 @@ interface FemaleDJProps {
   isPerfectHit: boolean;
 }
 
-export function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
+export const FemaleDJ = memo(function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
   // Determine animation intensity based on combo
   const getEnergyLevel = () => {
     if (combo >= 20) return 'max';
@@ -22,7 +22,7 @@ export function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
   return (
     <div className="relative w-full h-48 flex items-end justify-center">
       {/* DJ Booth */}
-      <div className="absolute bottom-0 w-96 h-32 bg-gradient-to-t from-gray-900 via-gray-800 to-gray-700 rounded-t-2xl border-4 border-purple-600/50 shadow-2xl">
+      <div className="absolute bottom-0 w-96 h-32 bg-linear-to-t from-gray-900 via-gray-800 to-gray-700 rounded-t-2xl border-4 border-purple-600/50 shadow-2xl">
         {/* Equipment details */}
         <div className="absolute top-2 left-4 right-4 flex gap-2">
           <div className="flex-1 h-2 bg-purple-600 rounded-full shadow-inner" />
@@ -35,9 +35,9 @@ export function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
           {[...Array(6)].map((_, i) => (
             <motion.div
               key={i}
-              className="w-4 h-4 rounded-full bg-gradient-to-br from-gray-600 to-gray-800 border border-purple-400"
-              animate={{ rotate: energyLevel === 'max' ? [0, 20, -20, 0] : 0 }}
-              transition={{ duration: 2, repeat: Infinity, delay: i * 0.2 }}
+              className="w-4 h-4 rounded-full bg-linear-to-br from-gray-600 to-gray-800 border border-purple-400"
+              animate={{ rotate: energyLevel === 'max' ? [0, 30, -30, 0] : energyLevel === 'high' ? [0, 12, -12, 0] : 0 }}
+              transition={{ duration: 1.6, repeat: Infinity, delay: i * 0.16 }}
             />
           ))}
         </div>
@@ -46,10 +46,10 @@ export function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
         <motion.div
           className="absolute -top-32 left-1/2 -translate-x-1/2"
           animate={{
-            y: energyLevel === 'max' ? [0, -4, 0] : energyLevel === 'high' ? [0, -2, 0] : 0,
+            y: energyLevel === 'max' ? [0, -7, 0] : energyLevel === 'high' ? [0, -4, 0] : energyLevel === 'medium' ? [0, -2, 0] : 0,
           }}
           transition={{
-            duration: energyLevel === 'max' ? 0.4 : 0.6,
+            duration: energyLevel === 'max' ? 0.32 : energyLevel === 'high' ? 0.48 : 0.6,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
@@ -62,17 +62,17 @@ export function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
               rx="35"
               ry="30"
               fill="url(#jacketGradient)"
-              animate={isHesitant ? { scale: [1, 0.98, 1] } : {}}
+              animate={isHesitant ? { scale: [1, 0.96, 1] } : {}}
               transition={{ duration: 1, repeat: Infinity }}
             />
             
             {/* Arms - animated */}
             <motion.g
               animate={{
-                rotate: energyLevel === 'max' ? [-5, 5, -5] : [-2, 2, -2],
+                rotate: energyLevel === 'max' ? [-8, 8, -8] : energyLevel === 'high' ? [-5, 5, -5] : [-3, 3, -3],
               }}
               transition={{
-                duration: energyLevel === 'max' ? 0.5 : 1,
+                duration: energyLevel === 'max' ? 0.42 : 0.85,
                 repeat: Infinity,
               }}
               style={{ transformOrigin: '50px 90px' }}
@@ -83,12 +83,12 @@ export function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
             
             <motion.g
               animate={{
-                rotate: energyLevel === 'max' ? [5, -5, 5] : [2, -2, 2],
+                rotate: energyLevel === 'max' ? [8, -8, 8] : energyLevel === 'high' ? [5, -5, 5] : [3, -3, 3],
               }}
               transition={{
-                duration: energyLevel === 'max' ? 0.5 : 1,
+                duration: energyLevel === 'max' ? 0.42 : 0.85,
                 repeat: Infinity,
-                delay: 0.25,
+                delay: 0.18,
               }}
               style={{ transformOrigin: '90px 90px' }}
             >
@@ -110,8 +110,8 @@ export function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
                 cy="35"
                 r="12"
                 fill="#1F2937"
-                animate={{ y: energyLevel === 'high' || energyLevel === 'max' ? [0, -1, 0] : 0 }}
-                transition={{ duration: 0.6, repeat: Infinity }}
+                animate={{ y: energyLevel === 'high' || energyLevel === 'max' ? [0, -2, 0] : 0 }}
+                transition={{ duration: 0.5, repeat: Infinity }}
               />
               <circle cx="70" cy="28" r="14" fill="#1F2937" />
               <circle cx="90" cy="35" r="12" fill="#1F2937" />
@@ -127,9 +127,9 @@ export function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
                 ry="12"
                 fill="#374151"
                 animate={{
-                  y: energyLevel === 'max' ? [0, -2, 0] : energyLevel === 'high' ? [0, -1, 0] : 0,
+                  y: energyLevel === 'max' ? [0, -3, 0] : energyLevel === 'high' ? [0, -2, 0] : 0,
                 }}
-                transition={{ duration: 0.5, repeat: Infinity }}
+                transition={{ duration: 0.42, repeat: Infinity }}
               />
             </g>
 
@@ -185,13 +185,6 @@ export function FemaleDJ({ combo, missStreak, isPerfectHit }: FemaleDJProps) {
           </svg>
         </motion.div>
       </div>
-
-      {/* "by dusk" label */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full mt-2">
-        <p className="text-sm font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-          by dusk
-        </p>
-      </div>
     </div>
   );
-}
+});

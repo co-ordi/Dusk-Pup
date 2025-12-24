@@ -1,46 +1,46 @@
 import { motion } from 'motion/react';
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 
 interface YorkieDJProps {
   mood: 'idle' | 'hit' | 'perfect' | 'miss';
 }
 
-export function YorkieDJ({ mood }: YorkieDJProps) {
-  const getMoodAnimation = () => {
+export const YorkieDJ = memo(function YorkieDJ({ mood }: YorkieDJProps) {
+  const moodAnimation = useMemo(() => {
     switch (mood) {
       case 'hit':
         return { 
-          scale: [1, 1.1, 1], 
-          y: [0, -15, 0],
-          rotate: [0, -5, 5, 0],
-          transition: { duration: 0.3 } 
+          scale: [1, 1.14, 1], 
+          y: [0, -22, 0],
+          rotate: [0, -7, 7, 0],
+          transition: { duration: 0.28 } 
         };
       case 'perfect':
         return { 
-          rotate: [0, -8, 8, -8, 8, 0], 
-          scale: [1, 1.2, 1.15, 1.2, 1],
-          y: [0, -20, -10, -15, 0],
+          rotate: [0, -12, 12, -12, 12, 0], 
+          scale: [1, 1.28, 1.18, 1.28, 1],
+          y: [0, -28, -14, -20, 0],
           transition: { duration: 1, repeat: 0 } 
         };
       case 'miss':
         return { 
-          y: [0, 5, 0],
-          scale: [1, 0.95, 1],
-          transition: { duration: 0.5 } 
+          y: [0, 8, 0],
+          scale: [1, 0.92, 1],
+          transition: { duration: 0.45 } 
         };
       default:
         return { 
-          y: [0, -10, 0],
-          transition: { duration: 2, repeat: Infinity, ease: 'easeInOut' } 
+          y: [0, -14, 0],
+          transition: { duration: 1.6, repeat: Infinity, ease: 'easeInOut' as const } 
         };
     }
-  };
+  }, [mood]);
 
   return (
     <div className="relative flex items-center justify-center">
       <motion.div
         className="relative"
-        animate={getMoodAnimation()}
+        animate={moodAnimation}
       >
         {/* Yorkie Character - More realistic */}
         <svg
@@ -176,11 +176,11 @@ export function YorkieDJ({ mood }: YorkieDJProps) {
             strokeLinecap="round"
             animate={
               mood === 'hit' || mood === 'perfect'
-                ? { rotate: [0, 20, -10, 15, 0] }
+                ? { rotate: [0, 30, -15, 22, 0] }
                 : { rotate: 0 }
             }
             style={{ transformOrigin: '160px 180px' }}
-            transition={{ duration: 0.5, repeat: mood === 'perfect' ? Infinity : 0 }}
+            transition={{ duration: 0.4, repeat: mood === 'perfect' ? Infinity : 0 }}
           />
 
           {/* Sparkles on perfect hit */}
@@ -213,7 +213,7 @@ export function YorkieDJ({ mood }: YorkieDJProps) {
             <motion.div 
               className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full shadow-lg"
               animate={{ rotate: 360 }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: 'linear' }}
             >
               <div className="absolute inset-1 bg-gray-900 rounded-full" />
               <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-purple-400 rounded-full -translate-x-1/2 -translate-y-1/2" />
@@ -225,7 +225,7 @@ export function YorkieDJ({ mood }: YorkieDJProps) {
             <motion.div 
               className="absolute top-1 left-1/2 -translate-x-1/2 w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-700 rounded-full shadow-lg"
               animate={{ rotate: -360 }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
+                transition={{ duration: 2.0, repeat: Infinity, ease: 'linear' }}
             >
               <div className="absolute inset-1 bg-gray-900 rounded-full" />
               <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-orange-400 rounded-full -translate-x-1/2 -translate-y-1/2" />
@@ -235,4 +235,4 @@ export function YorkieDJ({ mood }: YorkieDJProps) {
       </motion.div>
     </div>
   );
-}
+});

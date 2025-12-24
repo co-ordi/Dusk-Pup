@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 
 interface CrowdYorkieProps {
   index: number;
@@ -8,15 +8,13 @@ interface CrowdYorkieProps {
   variant?: 'sitting' | 'standing';
 }
 
-export function CrowdYorkie({ index, combo, isExcited = false, variant = 'standing' }: CrowdYorkieProps) {
-  const getAnimationSpeed = () => {
+export const CrowdYorkie = memo(function CrowdYorkie({ index, combo, isExcited = false, variant = 'standing' }: CrowdYorkieProps) {
+  const bounceSpeed = useMemo(() => {
     if (combo >= 20) return 0.3;
     if (combo >= 10) return 0.5;
     if (combo >= 5) return 0.7;
     return 1.2;
-  };
-
-  const bounceSpeed = getAnimationSpeed();
+  }, [combo]);
   const delay = (index * 0.1) % 1;
 
   return (
@@ -25,20 +23,21 @@ export function CrowdYorkie({ index, combo, isExcited = false, variant = 'standi
       animate={{ 
         opacity: 1, 
         scale: 1,
-        y: isExcited ? [0, -8, 0] : [0, -4, 0],
+        y: isExcited ? [0, -12, 0] : [0, -6, 0],
       }}
       exit={{ opacity: 0, scale: 0 }}
       transition={{
         opacity: { duration: 0.5 },
         scale: { duration: 0.5 },
         y: {
-          duration: isExcited ? 0.3 : bounceSpeed,
+          duration: isExcited ? 0.26 : bounceSpeed * 0.9,
           repeat: Infinity,
           delay,
           ease: 'easeInOut',
         },
       }}
-      className="absolute"
+      className="relative"
+      style={{ display: 'block' }}
     >
       <svg width="50" height="60" viewBox="0 0 50 60" fill="none">
         {/* Yorkie body */}
@@ -83,8 +82,8 @@ export function CrowdYorkie({ index, combo, isExcited = false, variant = 'standi
               rx="3"
               ry="5"
               fill="#D97706"
-              animate={{ rotate: [-10, 10, -10] }}
-              transition={{ duration: 0.3, repeat: Infinity }}
+              animate={{ rotate: [-18, 18, -18] }}
+              transition={{ duration: 0.26, repeat: Infinity }}
             />
             <motion.ellipse
               cx="32"
@@ -92,8 +91,8 @@ export function CrowdYorkie({ index, combo, isExcited = false, variant = 'standi
               rx="3"
               ry="5"
               fill="#D97706"
-              animate={{ rotate: [10, -10, 10] }}
-              transition={{ duration: 0.3, repeat: Infinity }}
+              animate={{ rotate: [18, -18, 18] }}
+              transition={{ duration: 0.26, repeat: Infinity }}
             />
           </>
         )}
@@ -105,8 +104,8 @@ export function CrowdYorkie({ index, combo, isExcited = false, variant = 'standi
             cy="20"
             r="1.5"
             fill="#EC4899"
-            animate={{ scale: [1, 1.2, 1] }}
-            transition={{ duration: 0.5, repeat: Infinity }}
+            animate={{ scale: [1, 1.35, 1] }}
+            transition={{ duration: 0.45, repeat: Infinity }}
           />
         )}
         {index % 4 === 0 && (
@@ -115,4 +114,4 @@ export function CrowdYorkie({ index, combo, isExcited = false, variant = 'standi
       </svg>
     </motion.div>
   );
-}
+});
