@@ -10,6 +10,8 @@ import { EndGameScreen } from './components/EndGameScreen';
 import { ComboRewardToast, ComboRewardVariant } from './components/ComboRewardToast';
 import { AFRO_EFFECT_BASE_URL, AFRO_EFFECT_FILES, COMBO_REWARD_FILES, LOGDRUM_FILES } from './audio/afroEffectsManifest';
 import { Loader2, Volume2, VolumeX } from 'lucide-react';
+import { useIsMobile } from './components/ui/use-mobile';
+import { MobileControls } from './components/MobileControls';
 
 type Genre = 'deep_house' | 'amapiano' | 'afro_house' | 'gqom';
 
@@ -55,6 +57,7 @@ interface CrowdYorkieData {
 }
 
 function App() {
+  const isMobile = useIsMobile();
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'ended'>('menu');
   const [selectedGenre, setSelectedGenre] = useState<Genre>('deep_house');
   const [beats, setBeats] = useState<Beat[]>([]);
@@ -870,20 +873,9 @@ function App() {
     setTimeout(() => setAiComment(null), 3000);
   };
 
-  const handleKeyPress = useCallback((event: KeyboardEvent) => {
-    const key = event.key.toLowerCase();
-    const laneIndex = LANE_KEYS.indexOf(key);
-    
-    // Prevent default browser behavior for game keys (scrolling, etc.)
-    // Always prevent default for game keys, even if not playing
-    if (laneIndex !== -1 || ['a', 's', 'k', 'l'].includes(key)) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-    }
-    
+  const triggerLane = useCallback((laneIndex: number) => {
     if (gameState !== 'playing') return;
-    if (laneIndex === -1) return;
+    if (laneIndex < 0 || laneIndex > 3) return;
 
     // Main button SFX should always fire on press (independent of hit/miss)
     playSound(laneIndex);
@@ -901,16 +893,14 @@ function App() {
       });
     }, 100);
 
-    // Use ref to get latest beats without dependency
-    const currentBeats = beats;
-    const laneBeats = currentBeats.filter(b => b.lane === laneIndex);
+    const laneBeats = beats.filter(b => b.lane === laneIndex);
     if (laneBeats.length === 0) return;
 
-    // Calculate fall duration based on BPM: slower BPM = longer fall (easier), faster BPM = shorter fall (harder)
     // Use ref to avoid stale-closure BPM when switching genres.
     const bpm = GENRE_BPMS[selectedGenreRef.current];
     const FALL_DURATION = Math.round((100 / bpm) * 2500);
-    const currentTimeNow = currentTimeRef.current; // Use ref for latest time
+    const currentTimeNow = currentTimeRef.current;
+
     const closestBeat = laneBeats.reduce((closest, beat) => {
       const elapsed = currentTimeNow - beat.spawnTime;
       const progress = elapsed / FALL_DURATION;
@@ -926,10 +916,8 @@ function App() {
 
     const elapsed = currentTimeNow - closestBeat.spawnTime;
     const progress = elapsed / FALL_DURATION;
-    // Widen hit window: expect note at 85% progress (slightly earlier) with 25% tolerance
     const expectedProgress = 0.85;
     const accuracy = Math.abs(progress - expectedProgress);
-    // Also check time-based window: within 200ms of expected hit time
     const expectedHitTime = FALL_DURATION * expectedProgress;
     const timeAccuracy = Math.abs(elapsed - expectedHitTime);
 
@@ -938,9 +926,7 @@ function App() {
       const points = isPerfect ? 100 : 50;
       const newCombo = combo + 1;
       
-      // Mark beat as hit for animation
       setHitBeats(prev => new Set([...prev, closestBeat.id]));
-      // Remove hit marker after animation completes
       setTimeout(() => {
         setHitBeats(prev => {
           const next = new Set(prev);
@@ -949,9 +935,6 @@ function App() {
         });
       }, 300);
       
-      // Calculate accuracy percentage: 100% = perfect hit, 0% = barely hit
-      // accuracy is the distance from expected (0 = perfect, 0.25 = worst acceptable)
-      // Convert to percentage: (1 - (accuracy / 0.25)) * 100
       const accuracyPercent = Math.max(0, Math.min(100, (1 - (accuracy / 0.25)) * 100));
       
       setScore(s => s + points * (Math.floor(newCombo / 5) + 1));
@@ -967,7 +950,6 @@ function App() {
         setTimeout(() => setIsPerfectHit(false), 500);
       }
       
-      // Combo reward: at 5,10,15,... trigger an extra non-logdrum drop, but spaced out (>= 4s)
       if (newCombo > 0 && newCombo % 5 === 0 && audioContextRef.current) {
         const nowSec = audioContextRef.current.currentTime;
         const cooldownSec = 4;
@@ -980,8 +962,6 @@ function App() {
             window.clearTimeout(comboRewardClearTimeoutRef.current);
           }
           comboRewardClearTimeoutRef.current = window.setTimeout(() => setComboReward(null), 1300);
-          
-          // Slight delay so it reads as an earned "drop" instead of chaotic overlap with the logdrum
           window.setTimeout(() => playComboRewardSound(), 120);
         }
       }
@@ -989,7 +969,6 @@ function App() {
       setBeats(prev => prev.filter(b => b.id !== closestBeat.id));
       setTimeout(() => setYorkieMood('idle'), isPerfect ? 1000 : 300);
     } else {
-      // Miss
       setCombo(0);
       setYorkieMood('miss');
       setMissStreak(prev => prev + 1);
@@ -1006,7 +985,21 @@ function App() {
       
       setTimeout(() => setYorkieMood('idle'), 500);
     }
-  }, [gameState, beats, currentTime, combo, exciteRandomYorkies, removeCrowdYorkie]);
+  }, [gameState, beats, combo, exciteRandomYorkies, removeCrowdYorkie]);
+
+  const handleKeyPress = useCallback((event: KeyboardEvent) => {
+    const key = event.key.toLowerCase();
+    const laneIndex = LANE_KEYS.indexOf(key);
+
+    if (laneIndex !== -1 || ['a', 's', 'k', 'l'].includes(key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+
+    if (laneIndex === -1) return;
+    triggerLane(laneIndex);
+  }, [triggerLane]);
 
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent) => {
@@ -1182,7 +1175,9 @@ function App() {
 
   return (
     <div 
-      className="fixed inset-0 bg-gradient-to-br from-indigo-950 via-purple-900 to-pink-900 overflow-hidden pt-24" 
+      className={`fixed inset-0 bg-gradient-to-br from-indigo-950 via-purple-900 to-pink-900 overflow-hidden pt-24 ${
+        isMobile ? 'pb-24' : ''
+      }`} 
       style={{ 
         backgroundColor: '#0f0f23', 
         touchAction: 'none',
@@ -1317,11 +1312,14 @@ function App() {
       </div>
 
       {/* Beat Lanes - use CSS containment for better performance */}
-      <div className="flex gap-3 px-6 h-56 relative z-10 mt-2" style={{ contain: 'layout style paint' }}>
+      <div
+        className={`flex gap-3 px-6 relative z-10 mt-2 ${isMobile ? 'h-44' : 'h-56'}`}
+        style={{ contain: 'layout style paint' }}
+      >
         {LANES.map(lane => {
           // Calculate fall duration based on BPM: slower BPM = longer fall (easier), faster BPM = shorter fall (harder)
           // Base duration of 2500ms at 100 BPM, scales inversely with BPM
-          const bpm = GENRE_BPMS[selectedGenre];
+          const bpm = GENRE_BPMS[selectedGenreRef.current];
           const fallDuration = Math.round((100 / bpm) * 2500);
           
           return (
@@ -1346,6 +1344,11 @@ function App() {
 
       <SunsetTimer progress={progress} />
       <AICommentBox comment={aiComment} />
+      <MobileControls
+        isVisible={isMobile && gameState === 'playing'}
+        activeLanes={activeLanes}
+        onPress={(laneIndex) => triggerLane(laneIndex)}
+      />
     </div>
   );
 }
