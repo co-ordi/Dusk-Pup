@@ -99,7 +99,7 @@ function App() {
 
   // Performance monitoring
   const totalAnimatedElements = crowdYorkies.length + landedDogs.length + (flyingDog ? 1 : 0);
-  const performanceMode = totalAnimatedElements > 25; // Enable performance mode when crowded
+  const performanceMode = totalAnimatedElements > 20; // More aggressive: enable when >20 animated elements
 
   // Memoized random values for all landed dogs to avoid hooks in map
   const landedDogRandoms = useMemo(() => {
@@ -640,7 +640,7 @@ function App() {
   const spawnCrowdYorkie = useCallback(() => {
     setCrowdYorkies(prev => {
       // Performance limit: reduce spawning when too many elements
-      const maxPups = performanceMode ? 30 : 50;
+      const maxPups = performanceMode ? 25 : 50;
       if (prev.length >= maxPups) {
         // Still give score bonus even when not spawning more pups
         setScore(currentScore => currentScore + (performanceMode ? 25 : 50)); // Reduced bonus in performance mode
@@ -1110,7 +1110,7 @@ function App() {
         setTimeout(() => setIsPerfectHit(false), 500);
       }
       
-      if (newCombo > 0 && newCombo % 5 === 0 && audioContextRef.current) {
+      if (newCombo > 0 && newCombo % 7 === 0 && audioContextRef.current) { // Less frequent combo rewards for performance
         // #region agent log - hypothesis D: Combo reward state issues
         fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
           method: 'POST',
@@ -1370,7 +1370,7 @@ function App() {
           
           <div className="text-gray-300 text-xs space-y-1">
             <p className="font-semibold">Use A, S (left) and K, L (right) keys to match the beats</p>
-            <p>Build your Yorkie crowd by hitting perfect notes! 🐕</p>
+            <p>Build your Pup crowd by hitting perfect notes! 🐕</p>
           </div>
         </div>
       </div>
@@ -1456,7 +1456,7 @@ function App() {
               'radial-gradient(circle at 30% 25%, rgba(168,85,247,0.18) 0%, rgba(236,72,153,0.08) 40%, rgba(0,0,0,0) 75%),' +
               'radial-gradient(circle at 85% 35%, rgba(251,146,60,0.12) 0%, rgba(139,92,246,0.06) 45%, rgba(0,0,0,0) 80%)',
             backgroundSize: '220% 220%',
-            animation: crowdYorkies.length > 20 ? 'none' : 'sunsetDrift 32s ease-in-out infinite', // Disable when crowded
+            animation: performanceMode ? 'none' : 'sunsetDrift 32s ease-in-out infinite', // Disable in performance mode
             mixBlendMode: 'screen',
             opacity: crowdYorkies.length > 20 ? 0.4 : 0.6, // Reduce opacity when crowded
           }}
@@ -1471,15 +1471,15 @@ function App() {
             mixBlendMode: 'multiply',
           }}
         />
-        {/* Reduced particle count for performance */}
-        {backgroundParticles.slice(0, crowdYorkies.length > 20 ? 15 : 30).map((particle) => (
+        {/* Minimal particle count for performance */}
+        {backgroundParticles.slice(0, performanceMode ? 10 : crowdYorkies.length > 15 ? 15 : 25).map((particle) => (
           <div
             key={particle.id}
             className="absolute w-1 h-1 bg-purple-400/15 rounded-full"
             style={{
               left: `${particle.left}%`,
               top: `${particle.top}%`,
-              animation: crowdYorkies.length > 20 ? 'none' : `pulse ${particle.duration}s ease-in-out infinite`,
+              animation: performanceMode ? 'none' : `pulse ${particle.duration}s ease-in-out infinite`,
               animationDelay: `${particle.delay}s`,
             }}
           />
@@ -1702,8 +1702,8 @@ function App() {
                   opacity: 1,
                   scaleX: shouldSimplify ? [1, -1, 1] : [1, -1, 1], // Simplified animation for performance
                   x: shouldSimplify
-                    ? [0, (landedDogRandoms[dog.id]?.drift1 || 0) * 0.3, 0] // Minimal drift for performance
-                    : [0, landedDogRandoms[dog.id]?.drift1 || 0, landedDogRandoms[dog.id]?.drift2 || 0, 0] // Full drift
+                    ? [0, (landedDogRandoms[dog.id]?.drift1 || 0) * 0.2, 0] // Even more minimal drift
+                    : [0, (landedDogRandoms[dog.id]?.drift1 || 0) * 0.5, 0] // Simplified full drift
                 }}
                 transition={{
                   duration: 0.5,

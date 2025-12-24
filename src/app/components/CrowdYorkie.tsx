@@ -20,10 +20,10 @@ interface CrowdYorkieProps {
 
 export const CrowdYorkie = memo(function CrowdYorkie({ index, combo, isExcited = false, variant = 'standing' }: CrowdYorkieProps) {
   const bounceSpeed = useMemo(() => {
-    if (combo >= 20) return 0.3;
-    if (combo >= 10) return 0.5;
-    if (combo >= 5) return 0.7;
-    return 1.2;
+    // Simplified bounce speeds for better performance
+    if (combo >= 15) return 0.4;
+    if (combo >= 8) return 0.6;
+    return 1.5; // Slower default for performance
   }, [combo]);
   const delay = (index * 0.1) % 1;
 
