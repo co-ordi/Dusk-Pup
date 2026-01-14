@@ -65,9 +65,7 @@ export const MobileControls = memo(function MobileControls({ isVisible, activeLa
                 ].join(' ')}
               >
                 <div className="h-full flex items-center justify-center">
-                  <span className="text-white/90 font-black text-xl drop-shadow">
-                    {lane.label}
-                  </span>
+                  {/* Letters removed for cleaner mobile UI */}
                 </div>
               </button>
             );

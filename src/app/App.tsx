@@ -1026,7 +1026,7 @@ function App() {
     setTimeout(() => setAiComment(null), 3000);
   };
 
-  const triggerLane = useCallback((laneIndex: number) => {
+  const triggerLane = useCallback((laneIndex: number, isMobileInput: boolean = false) => {
     if (gameState !== 'playing') return;
     if (laneIndex < 0 || laneIndex > 3) return;
 
@@ -1074,8 +1074,15 @@ function App() {
     const expectedHitTime = FALL_DURATION * expectedProgress;
     const timeAccuracy = Math.abs(elapsed - expectedHitTime);
 
-    if (accuracy < 0.25 || timeAccuracy < 200) {
-      const isPerfect = accuracy < 0.08 || timeAccuracy < 50;
+
+    // Relaxed thresholds for mobile
+    const hitThreshold = isMobileInput ? 0.35 : 0.25; // 40% wider window for mobile
+    const timeThreshold = isMobileInput ? 300 : 200; // 50% wider time window for mobile
+    const perfectThreshold = isMobileInput ? 0.12 : 0.08; // 50% wider perfect window
+    const perfectTimeThreshold = isMobileInput ? 80 : 50;
+
+    if (accuracy < hitThreshold || timeAccuracy < timeThreshold) {
+      const isPerfect = accuracy < perfectThreshold || timeAccuracy < perfectTimeThreshold;
       const points = isPerfect ? 100 : 50;
       const newCombo = combo + 1;
 
@@ -1180,7 +1187,7 @@ function App() {
     }
 
     if (laneIndex === -1) return;
-    triggerLane(laneIndex);
+    triggerLane(laneIndex, false);
   }, [triggerLane]);
 
   useEffect(() => {
@@ -1777,7 +1784,7 @@ function App() {
       <MobileControls
         isVisible={isMobile && gameState === 'playing'}
         activeLanes={activeLanes}
-        onPress={(laneIndex) => triggerLane(laneIndex)}
+        onPress={(laneIndex) => triggerLane(laneIndex, true)}
       />
 
       {/* Performance monitoring - measure render time */}
