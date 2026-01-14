@@ -1,3 +1,4 @@
+
 export type Genre = 'deep_house' | 'amapiano' | 'afro_house' | 'gqom';
 
 export interface HighScoreEntry {
@@ -8,30 +9,56 @@ export interface HighScoreEntry {
 
 export type Leaderboard = Record<Genre, HighScoreEntry | null>;
 
-const STORAGE_KEY = 'dusk_pup_leaderboard_v1';
+export const EMPTY_LEADERBOARD: Leaderboard = {
+  deep_house: null,
+  amapiano: null,
+  afro_house: null,
+  gqom: null,
+};
 
-export function getEmptyLeaderboard(): Leaderboard {
-  return {
-    deep_house: null,
-    amapiano: null,
-    afro_house: null,
-    gqom: null,
-  };
-}
-
-export function loadLeaderboard(): Leaderboard {
+// Now async
+export async function loadLeaderboard(): Promise<Leaderboard> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return getEmptyLeaderboard();
-    const parsed = JSON.parse(raw) as Partial<Leaderboard>;
-    return { ...getEmptyLeaderboard(), ...parsed };
-  } catch {
-    return getEmptyLeaderboard();
+    const response = await fetch('/api/leaderboard');
+    if (!response.ok) {
+      throw new Error(`Failed to load leaderboard: ${response.statusText}`);
+    }
+    const data = await response.json();
+    return { ...EMPTY_LEADERBOARD, ...data };
+  } catch (error) {
+    console.error('Failed to load leaderboard:', error);
+    return EMPTY_LEADERBOARD;
   }
 }
 
-export function saveLeaderboard(lb: Leaderboard) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(lb));
+// Now async
+export async function updateHighScore(
+  genre: Genre,
+  username: string,
+  score: number
+): Promise<{ success: boolean; leaderboard: Leaderboard }> {
+  try {
+    const response = await fetch('/api/leaderboard', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ genre, username, score }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to update high score: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return {
+      success: data.success,
+      leaderboard: data.leaderboard || EMPTY_LEADERBOARD
+    };
+  } catch (error) {
+    console.error('Failed to update high score:', error);
+    return { success: false, leaderboard: EMPTY_LEADERBOARD };
+  }
 }
 
 export function isNewHighScore(lb: Leaderboard, genre: Genre, score: number) {
@@ -40,10 +67,5 @@ export function isNewHighScore(lb: Leaderboard, genre: Genre, score: number) {
   return score > current.score;
 }
 
-export function updateHighScore(lb: Leaderboard, genre: Genre, username: string, score: number): Leaderboard {
-  const next: Leaderboard = { ...lb };
-  next[genre] = { username: username.trim() || 'Anonymous', score, updatedAt: Date.now() };
-  return next;
-}
 
 

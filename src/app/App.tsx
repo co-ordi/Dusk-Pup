@@ -13,7 +13,7 @@ import { AFRO_EFFECT_BASE_URL, AFRO_EFFECT_FILES, COMBO_REWARD_FILES, LOGDRUM_FI
 import { Loader2, Volume2, VolumeX } from 'lucide-react';
 import { useIsMobile } from './components/ui/use-mobile';
 import { MobileControls } from './components/MobileControls';
-import { loadLeaderboard, saveLeaderboard, updateHighScore, isNewHighScore, type Leaderboard } from './utils/leaderboard';
+import { loadLeaderboard, updateHighScore, isNewHighScore, type Leaderboard, EMPTY_LEADERBOARD } from './utils/leaderboard';
 
 type Genre = 'deep_house' | 'amapiano' | 'afro_house' | 'gqom';
 
@@ -73,18 +73,17 @@ function App() {
   const [aiComment, setAiComment] = useState<string | null>(null);
   const [hitAccuracies, setHitAccuracies] = useState<number[]>([]);
   const [endGameData, setEndGameData] = useState<any>(null);
-  const [leaderboard, setLeaderboard] = useState<Leaderboard>(() => {
-    try {
-      return loadLeaderboard();
-    } catch {
-      return {
-        deep_house: null,
-        amapiano: null,
-        afro_house: null,
-        gqom: null,
-      };
-    }
-  });
+  // Initialize with empty leaderboard, load via effect
+  const [leaderboard, setLeaderboard] = useState<Leaderboard>(EMPTY_LEADERBOARD);
+
+  // Load initial leaderboard
+  useEffect(() => {
+    loadLeaderboard().then(data => {
+      startTransition(() => {
+        setLeaderboard(data);
+      });
+    });
+  }, []);
   const [crowdYorkies, setCrowdYorkies] = useState<CrowdYorkieData[]>([]);
   const [excitedYorkies, setExcitedYorkies] = useState<Set<string>>(new Set());
   const [missStreak, setMissStreak] = useState(0);
@@ -117,7 +116,7 @@ function App() {
     return randoms;
   }, [landedDogs.map(d => d.id).join(',')]); // Depend on dog IDs to recalculate when dogs change
   const [menuMusicStatus, setMenuMusicStatus] = useState<'idle' | 'loading' | 'playing' | 'blocked'>('idle');
-  
+
   const animationFrameRef = useRef<number | undefined>(undefined);
   const lastCommentTime = useRef(0);
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -186,11 +185,11 @@ function App() {
           ' ', 'Space', 'PageUp', 'PageDown', 'Home', 'End',
           'Tab', 'Enter'
         ];
-        
+
         // Only allow game keys (a, s, k, l) - prevent everything else
         const gameKeys = ['a', 's', 'k', 'l'];
         const keyLower = e.key.toLowerCase();
-        
+
         if (!gameKeys.includes(keyLower) || scrollKeys.includes(e.key)) {
           e.preventDefault();
           e.stopPropagation();
@@ -222,7 +221,7 @@ function App() {
       // Prevent focus from causing scroll
       const preventFocusScroll = (e: FocusEvent) => {
         if (e.target && e.target instanceof HTMLElement) {
-          e.target.scrollIntoView = () => {};
+          e.target.scrollIntoView = () => { };
         }
       };
       window.addEventListener('focus', preventFocusScroll, { capture: true });
@@ -271,7 +270,7 @@ function App() {
         runId: 'initial',
         hypothesisId: 'B'
       })
-    }).catch(() => {});
+    }).catch(() => { });
     // #endregion
 
     audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -657,12 +656,12 @@ function App() {
       const x = Math.random() * (danceFloorWidth - 10) + 5; // 5-95% to keep them on screen
       const y = Math.random() * (danceFloorHeight - yorkieHeight - 20) + 10; // 10-92px to fit within dance floor
 
-    const newYorkie: CrowdYorkieData = {
-      id: `yorkie-${Date.now()}-${Math.random()}`,
+      const newYorkie: CrowdYorkieData = {
+        id: `yorkie-${Date.now()}-${Math.random()}`,
         x: x,
         y: y,
-      variant: Math.random() > 0.5 ? 'standing' : 'sitting',
-    };
+        variant: Math.random() > 0.5 ? 'standing' : 'sitting',
+      };
 
       return [...prev, newYorkie];
     });
@@ -690,8 +689,8 @@ function App() {
     milestones.forEach(milestone => {
       if (combo >= milestone && !comboMilestonesReached.has(milestone)) {
         setComboMilestonesReached(prev => new Set([...prev, milestone]));
-      spawnCrowdYorkie();
-    }
+        spawnCrowdYorkie();
+      }
     });
   }, [combo, comboMilestonesReached, spawnCrowdYorkie]);
 
@@ -722,7 +721,7 @@ function App() {
         runId: 'initial',
         hypothesisId: 'B'
       })
-    }).catch(() => {});
+    }).catch(() => { });
     // #endregion
 
     // Fade out menu music as we enter the game (do not await; keep gesture stack available for Safari).
@@ -759,7 +758,7 @@ function App() {
     }
 
     const startTime = Date.now();
-    
+
     // Set refs first (synchronous)
     gameStartTimeRef.current = startTime;
     currentTimeRef.current = 0;
@@ -767,7 +766,7 @@ function App() {
     lastScoreThreshold.current = 0;
     lastBeatTimeRef.current = 0;
     lastRenderTimeRef.current = 0;
-    
+
     // Update state - set gameState first to trigger re-render
     setGameState('playing');
     setBeats([]);
@@ -791,7 +790,7 @@ function App() {
   const lastBeatTimePerLaneRef = useRef<number[]>([0, 0, 0, 0]);
   const selectedGenreRef = useRef<Genre>(selectedGenre);
   const leaderboardRef = useRef<Leaderboard>(leaderboard);
-  
+
   // Update genre ref when it changes
   useEffect(() => {
     selectedGenreRef.current = selectedGenre;
@@ -799,14 +798,8 @@ function App() {
 
   useEffect(() => {
     leaderboardRef.current = leaderboard;
-    // Persist leaderboard changes
-    try {
-      saveLeaderboard(leaderboard);
-    } catch {
-      // ignore
-    }
   }, [leaderboard]);
-  
+
   const generateBeatRef = useRef<(elapsed: number) => void>((elapsed: number) => {
     const bpm = GENRE_BPMS[selectedGenreRef.current];
     const beatInterval = (60 / bpm) * 1000;
@@ -815,7 +808,7 @@ function App() {
     // - Scale spacing with fall duration so faster genres still don't pile up visually
     const fallDuration = Math.round((100 / bpm) * 2500);
     const minSpacing = Math.max(beatInterval * 0.9, fallDuration * 0.65);
-    
+
     // Limit total beats to prevent performance issues
     setBeats(prev => {
       if (prev.length >= 50) {
@@ -823,23 +816,23 @@ function App() {
         const filtered = prev.filter(beat => elapsed - beat.spawnTime < 2500);
         if (filtered.length >= 50) return filtered;
       }
-      
+
       // Find lanes that have enough spacing from last beat
       const availableLanes = [0, 1, 2, 3].filter(lane => {
         const timeSinceLastBeat = elapsed - lastBeatTimePerLaneRef.current[lane];
         return timeSinceLastBeat >= minSpacing;
       });
-      
+
       // If no lanes available, skip this beat
       if (availableLanes.length === 0) return prev;
-      
+
       // Randomly select from available lanes
       const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
       lastBeatTimePerLaneRef.current[lane] = elapsed;
-      
-    const newBeat: Beat = {
+
+      const newBeat: Beat = {
         id: `beat-${elapsed}-${Math.random()}`,
-      lane,
+        lane,
         spawnTime: elapsed,
       };
       return [...prev, newBeat];
@@ -854,10 +847,10 @@ function App() {
     setGameState('ended');
     const genreAtEnd = selectedGenreRef.current;
     // Calculate average accuracy: hitAccuracies now stores accuracy percentages directly
-    const averageAccuracy = hitAccuracies.length > 0 
+    const averageAccuracy = hitAccuracies.length > 0
       ? Math.round(hitAccuracies.reduce((a, b) => a + b, 0) / hitAccuracies.length)
       : 0;
-    
+
     const selectedTracks = MOCK_TRACKS
       .sort(() => Math.random() - 0.5)
       .slice(0, 6)
@@ -900,7 +893,7 @@ function App() {
     if (gameState !== 'playing') {
       return;
     }
-    
+
     // Use ref for gameStartTime to avoid stale closure issues
     const startTime = gameStartTimeRef.current;
     if (startTime === 0) {
@@ -913,7 +906,7 @@ function App() {
       }, 100);
       return () => clearTimeout(timeoutId);
     }
-    
+
     const bpm = GENRE_BPMS[selectedGenre];
     const beatInterval = (60 / bpm) * 1000;
 
@@ -947,7 +940,7 @@ function App() {
           runId: 'performance',
           hypothesisId: 'E'
         })
-      }).catch(() => {});
+      }).catch(() => { });
       // #endregion
 
       const elapsed = Date.now() - gameStartTimeRef.current; // Use ref instead of state
@@ -976,15 +969,15 @@ function App() {
             runId: 'performance',
             hypothesisId: 'E'
           })
-        }).catch(() => {});
+        }).catch(() => { });
         // #endregion
       }
-      
+
       // Only update state every ~16ms (60fps) to reduce re-renders
       // Use startTransition for non-urgent updates
       if (elapsed - lastRenderTimeRef.current >= 16) {
         startTransition(() => {
-      setCurrentTime(elapsed);
+          setCurrentTime(elapsed);
         });
         lastRenderTimeRef.current = elapsed;
       }
@@ -999,16 +992,16 @@ function App() {
         lastBeatTimeRef.current = elapsed;
       }
 
-        // Only filter beats every 200ms to reduce state updates
-        const shouldFilter = elapsed % 200 < 16;
-        if (shouldFilter) {
-          startTransition(() => {
-            setBeats(prev => prev.filter(beat => {
-              const age = elapsed - beat.spawnTime;
-              return age < 3000 && age >= -100; // Keep beats that are visible or about to be
-            }));
-          });
-        }
+      // Only filter beats every 200ms to reduce state updates
+      const shouldFilter = elapsed % 200 < 16;
+      if (shouldFilter) {
+        startTransition(() => {
+          setBeats(prev => prev.filter(beat => {
+            const age = elapsed - beat.spawnTime;
+            return age < 3000 && age >= -100; // Keep beats that are visible or about to be
+          }));
+        });
+      }
 
       if (elapsed - lastCommentTime.current > 10000) {
         showAIComment();
@@ -1066,7 +1059,7 @@ function App() {
       const progress = elapsed / FALL_DURATION;
       const expectedProgress = 0.85;
       const accuracy = Math.abs(progress - expectedProgress);
-      
+
       const closestElapsed = currentTimeNow - closest.spawnTime;
       const closestProgress = closestElapsed / FALL_DURATION;
       const closestAccuracy = Math.abs(closestProgress - expectedProgress);
@@ -1085,7 +1078,7 @@ function App() {
       const isPerfect = accuracy < 0.08 || timeAccuracy < 50;
       const points = isPerfect ? 100 : 50;
       const newCombo = combo + 1;
-      
+
       setHitBeats(prev => new Set([...prev, closestBeat.id]));
       setTimeout(() => {
         setHitBeats(prev => {
@@ -1094,22 +1087,22 @@ function App() {
           return next;
         });
       }, 300);
-      
+
       const accuracyPercent = Math.max(0, Math.min(100, (1 - (accuracy / 0.25)) * 100));
-      
+
       setScore(s => s + points * (Math.floor(newCombo / 5) + 1));
       setCombo(newCombo);
       setMaxCombo(m => Math.max(m, newCombo));
       setHitAccuracies(prev => [...prev, accuracyPercent]);
       setYorkieMood(isPerfect ? 'perfect' : 'hit');
       setMissStreak(0);
-      
+
       if (isPerfect) {
         setIsPerfectHit(true);
         exciteRandomYorkies();
         setTimeout(() => setIsPerfectHit(false), 500);
       }
-      
+
       if (newCombo > 0 && newCombo % 6 === 0 && audioContextRef.current) { // Less frequent combo rewards for performance
         // #region agent log - hypothesis D: Combo reward state issues
         fetch('http://127.0.0.1:7243/ingest/28deec04-3579-4497-a4b5-71b4d65cebfc', {
@@ -1124,7 +1117,7 @@ function App() {
             runId: 'initial',
             hypothesisId: 'D'
           })
-        }).catch(() => {});
+        }).catch(() => { });
         // #endregion
 
         const nowSec = audioContextRef.current.currentTime;
@@ -1161,7 +1154,7 @@ function App() {
       setCombo(0);
       setYorkieMood('miss');
       setMissStreak(prev => prev + 1);
-      
+
       const now = Date.now();
       setRecentMisses(prev => {
         const recent = [...prev.filter(t => now - t < 10000), now];
@@ -1171,7 +1164,7 @@ function App() {
         }
         return recent;
       });
-      
+
       setTimeout(() => setYorkieMood('idle'), 500);
     }
   }, [gameState, beats, combo, exciteRandomYorkies, removeCrowdYorkie]);
@@ -1192,14 +1185,22 @@ function App() {
 
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent) => {
+      // Check if the user is typing in an input field or textarea
+      const target = event.target as HTMLElement;
+      const isInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+
+      if (isInput) {
+        return; // Let the event propagate normally for inputs
+      }
+
       const key = event.key.toLowerCase();
-      
+
       // Prevent default for ALL keys during gameplay to prevent any scrolling
       if (gameState === 'playing') {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        
+
         // Only process game keys
         if (['a', 's', 'k', 'l'].includes(key)) {
           handleKeyPress(event);
@@ -1214,12 +1215,12 @@ function App() {
         handleKeyPress(event);
       }
     };
-    
+
     // Use capture phase to catch events early and prevent other handlers
     window.addEventListener('keydown', keyHandler, { passive: false, capture: true });
     // Also add in bubble phase as backup
     window.addEventListener('keydown', keyHandler, { passive: false });
-    
+
     return () => {
       window.removeEventListener('keydown', keyHandler, { capture: true });
       window.removeEventListener('keydown', keyHandler);
@@ -1320,13 +1321,12 @@ function App() {
               Music
             </span>
             <span
-              className={`ml-1 inline-flex h-2 w-2 rounded-full ${
-                menuMusicStatus === 'playing'
-                  ? 'bg-emerald-400'
-                  : menuMusicStatus === 'loading'
+              className={`ml-1 inline-flex h-2 w-2 rounded-full ${menuMusicStatus === 'playing'
+                ? 'bg-emerald-400'
+                : menuMusicStatus === 'loading'
                   ? 'bg-amber-300'
                   : 'bg-white/30'
-              }`}
+                }`}
             />
           </button>
         </div>
@@ -1348,11 +1348,10 @@ function App() {
                 <button
                   key={genre}
                   onClick={() => setSelectedGenre(genre)}
-                  className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all ${
-                    selectedGenre === genre
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xl scale-105'
-                      : 'bg-white/10 text-gray-300 hover:bg-white/20 backdrop-blur-sm border border-white/10'
-                  }`}
+                  className={`px-3 py-2 rounded-lg font-semibold text-sm transition-all ${selectedGenre === genre
+                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-xl scale-105'
+                    : 'bg-white/10 text-gray-300 hover:bg-white/20 backdrop-blur-sm border border-white/10'
+                    }`}
                 >
                   {genre.replace('_', ' ').toUpperCase()}
                   <div className="text-xs opacity-70 mt-0.5">{GENRE_BPMS[genre]} BPM</div>
@@ -1360,14 +1359,14 @@ function App() {
               ))}
             </div>
           </div>
-          
+
           <button
             onClick={startGame}
             className="px-12 py-4 rounded-xl bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 text-white font-bold text-xl shadow-2xl hover:shadow-purple-500/50 transition-all hover:scale-105 border-2 border-white/20 mb-4"
           >
             Start Vibing
           </button>
-          
+
           <div className="text-gray-300 text-xs space-y-1">
             <p className="font-semibold">Use A, S (left) and K, L (right) keys to match the beats</p>
             <p>Build your Pup crowd by hitting perfect notes! 🐕</p>
@@ -1384,9 +1383,12 @@ function App() {
         leaderboard={leaderboard}
         onSubmitHighScore={(username: string) => {
           const genre = endGameData.genre as 'deep_house' | 'amapiano' | 'afro_house' | 'gqom';
-          const updated = updateHighScore(leaderboardRef.current, genre, username, endGameData.totalScore);
-          setLeaderboard(updated);
-          setEndGameData((prev: any) => (prev ? { ...prev, highScoreSubmitted: true } : prev));
+          updateHighScore(genre, username, endGameData.totalScore).then(result => {
+            if (result.success) {
+              setLeaderboard(result.leaderboard);
+              setEndGameData((prev: any) => (prev ? { ...prev, highScoreSubmitted: true } : prev));
+            }
+          });
         }}
         onPlayAgain={() => {
           stopGameMusic();
@@ -1422,14 +1424,13 @@ function App() {
       runId: 'performance',
       hypothesisId: 'E'
     })
-  }).catch(() => {});
+  }).catch(() => { });
   // #endregion
 
   return (
     <div
-      className={`fixed inset-0 bg-gradient-to-br from-indigo-950 via-purple-900 to-pink-900 overflow-hidden pt-24 ${
-        isMobile ? 'pb-24' : ''
-      }`}
+      className={`fixed inset-0 bg-gradient-to-br from-indigo-950 via-purple-900 to-pink-900 overflow-hidden pt-24 ${isMobile ? 'pb-24' : ''
+        }`}
       style={{
         backgroundColor: '#0f0f23',
         touchAction: 'none',
@@ -1486,13 +1487,13 @@ function App() {
         ))}
       </div>
 
-      <ScoreDisplay 
-        score={score} 
-        combo={combo} 
+      <ScoreDisplay
+        score={score}
+        combo={combo}
         timeRemaining={GAME_DURATION - currentTime}
         crowdSize={crowdYorkies.length}
       />
-      
+
       <ComboRewardToast reward={comboReward} />
 
       {/* Flying Dog Animation */}
@@ -1558,9 +1559,9 @@ function App() {
 
 
       {/* Dancefloor Area - Yorkie DJ and crowd together */}
-      <div className="relative flex justify-center py-0" style={{ 
-        height: '160px', 
-        minHeight: '160px', 
+      <div className="relative flex justify-center py-0" style={{
+        height: '160px',
+        minHeight: '160px',
         maxHeight: '160px',
         position: 'relative',
         contain: 'layout style paint',
@@ -1570,7 +1571,7 @@ function App() {
         <div className="absolute inset-x-0 bottom-0 h-40 rounded-t-3xl overflow-hidden">
           {/* Base floor with darker pattern */}
           <div className="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-gray-800/70 to-gray-700/50" />
-          
+
           {/* Dancefloor checkerboard pattern */}
           <div className="absolute inset-0 opacity-40" style={{
             backgroundImage: `
@@ -1578,7 +1579,7 @@ function App() {
               repeating-linear-gradient(90deg, transparent, transparent 15px, rgba(255,255,255,0.15) 15px, rgba(255,255,255,0.15) 16px)
             `,
           }} />
-          
+
           {/* Disco ball effect - rotating light spots */}
           <div className="absolute inset-0 opacity-30" style={{
             background: `
@@ -1588,7 +1589,7 @@ function App() {
             `,
             animation: 'pulse 3s ease-in-out infinite',
           }} />
-          
+
           {/* Colored stage lights - moving across floor */}
           <div className="absolute inset-0">
             <div className="absolute top-0 left-0 w-1/3 h-full bg-gradient-to-b from-purple-500/30 via-transparent to-transparent" style={{
@@ -1601,22 +1602,22 @@ function App() {
               animation: 'pulse 2s ease-in-out infinite',
             }} />
           </div>
-          
+
           {/* Shine/gloss effect */}
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-purple-400/10 to-pink-400/15" />
-          
+
           {/* Edge glow */}
           <div className="absolute inset-0 border-t-2 border-purple-500/50 shadow-[0_-10px_30px_rgba(192,38,211,0.3)]" />
         </div>
-        
+
         {/* Main Yorkie DJ - positioned at top of dancefloor, scaled down */}
         <div className="relative z-30 transform scale-[0.7]">
-        <YorkieDJ mood={yorkieMood} />
+          <YorkieDJ mood={yorkieMood} />
         </div>
 
         {/* Crowd Area - positioned below main Yorkie on dancefloor - fixed height to prevent layout shifts */}
-        <div className="absolute bottom-0 left-0 right-0 h-40 px-8 overflow-visible" style={{ 
-          contain: 'layout style paint', 
+        <div className="absolute bottom-0 left-0 right-0 h-40 px-8 overflow-visible" style={{
+          contain: 'layout style paint',
           zIndex: 20,
           height: '160px',
           minHeight: '160px',
@@ -1663,7 +1664,7 @@ function App() {
                 runId: 'initial',
                 hypothesisId: 'A'
               })
-            }).catch(() => {});
+            }).catch(() => { });
             // #endregion
 
             // Simplified dance flip timing for better performance
@@ -1685,17 +1686,17 @@ function App() {
               <motion.div
                 key={dog.id}
                 className="absolute"
-              style={{
-                left: `${dog.x}%`,
-                bottom: `${dog.y}px`,
-                zIndex: Math.floor(dog.y) + 15, // Slightly behind yorkies
-                willChange: 'transform',
-                pointerEvents: 'none',
-                transform: 'translate3d(0, 0, 0)',
-                transformOrigin: 'bottom center',
-                backfaceVisibility: 'hidden', // Performance optimization
-                WebkitBackfaceVisibility: 'hidden',
-              }}
+                style={{
+                  left: `${dog.x}%`,
+                  bottom: `${dog.y}px`,
+                  zIndex: Math.floor(dog.y) + 15, // Slightly behind yorkies
+                  willChange: 'transform',
+                  pointerEvents: 'none',
+                  transform: 'translate3d(0, 0, 0)',
+                  transformOrigin: 'bottom center',
+                  backfaceVisibility: 'hidden', // Performance optimization
+                  WebkitBackfaceVisibility: 'hidden',
+                }}
                 initial={{ scale: 0.4, opacity: 0 }}
                 animate={{
                   scale: isMobile ? 0.5 : 0.6,
@@ -1750,17 +1751,17 @@ function App() {
           // Base duration of 2500ms at 100 BPM, scales inversely with BPM
           const bpm = GENRE_BPMS[selectedGenreRef.current];
           const fallDuration = Math.round((100 / bpm) * 2500);
-          
+
           return (
-          <BeatLane
-            key={lane}
-            lane={lane}
-            beats={beats}
-            isActive={activeLanes[lane]}
-            currentTime={currentTime}
+            <BeatLane
+              key={lane}
+              lane={lane}
+              beats={beats}
+              isActive={activeLanes[lane]}
+              currentTime={currentTime}
               hitBeats={hitBeats}
               fallDuration={fallDuration}
-            onHit={() => {}}
+              onHit={() => { }}
             />
           );
         })}
@@ -1803,7 +1804,7 @@ function App() {
               runId: 'performance',
               hypothesisId: 'E'
             })
-          }).catch(() => {});
+          }).catch(() => { });
           // #endregion
         }
 
